@@ -1162,8 +1162,10 @@ body {
 
     .hero {
         background-attachment: scroll;
-        background-size: contain;
-        background-color: #121314; /* Color oscuro que empareja con la imagen */
+        background-size: cover;
+        background-color: transparent;
+        min-height: 100vw; /* Hace que el hero sea un cuadrado perfecto en móviles */
+        height: auto;
     }
 
     .whatsapp-float {
