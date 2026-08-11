@@ -47,6 +47,36 @@
         <div class="hero-stage">
             <canvas id="heroCanvas" aria-hidden="true"></canvas>
             <div class="hero-veil" aria-hidden="true"></div>
+
+            <!-- Fichas sincronizadas con las etapas del render.
+                 data-in / data-out son la posición en la pista de scroll
+                 (0 = arranque, 1 = final). Editá el texto acá nomás. -->
+            <div class="hero-copy" id="heroCopy">
+                <article class="hero-beat" data-in="0.27" data-out="0.46">
+                    <span class="beat-index">01</span>
+                    <h2 class="beat-title">Plano 3D</h2>
+                    <p class="beat-text">Cada metro se decide antes de mover un ladrillo.</p>
+                    <span class="beat-data">Distribución y espacios</span>
+                </article>
+                <article class="hero-beat" data-in="0.49" data-out="0.68">
+                    <span class="beat-index">02</span>
+                    <h2 class="beat-title">Estructura</h2>
+                    <p class="beat-text">Lo que no se ve es lo que sostiene todo lo demás.</p>
+                    <span class="beat-data">Dirección de obra propia</span>
+                </article>
+                <article class="hero-beat" data-in="0.72" data-out="0.91">
+                    <span class="beat-index">03</span>
+                    <h2 class="beat-title">Render exterior</h2>
+                    <p class="beat-text">Lo ves terminado antes de aprobar el presupuesto. Sin sorpresas.</p>
+                    <span class="beat-data">Visualización fotorrealista</span>
+                </article>
+            </div>
+
+            <!-- Escala de progreso, como el borde de una lámina técnica. -->
+            <div class="hero-scale" id="heroScale" aria-hidden="true">
+                <span class="scale-fill"></span>
+            </div>
+
             <a href="#lema" class="scroll-down" id="heroScrollDown">↓</a>
         </div>
     </header>
@@ -150,30 +180,9 @@
         </div>
     </section>
 
-    <!-- Renders 3D -->
-    <section class="section bg-beige fade-in">
-        <div class="section-line"></div>
-        <div class="container">
-            <h2 class="section-title">Del plano a la realidad</h2>
-            <p class="render-subtitle">Visualizá tu proyecto antes de construirlo. Trabajamos con renders fotorrealistas y planos 3D para que no haya sorpresas.</p>
-            <div class="render-grid">
-                <div class="render-item fade-in">
-                    <img src="render_3d_house.png" alt="Render 3D de casa moderna" class="render-img" loading="lazy">
-                    <div class="render-caption">
-                        <h4>Render Exterior</h4>
-                        <p>Visualización fotorrealista</p>
-                    </div>
-                </div>
-                <div class="render-item fade-in">
-                    <img src="render_3d_blueprint.png" alt="Plano 3D isométrico" class="render-img" loading="lazy">
-                    <div class="render-caption">
-                        <h4>Plano 3D</h4>
-                        <p>Distribución y espacios</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    <!-- La sección "Del plano a la realidad" se fusionó con el hero: la
+         animación muestra el plano 3D y el render exterior en vez de
+         describirlos, y las fichas del hero llevan ese mismo mensaje. -->
 
     <!-- Proyectos -->
     <section id="proyectos" class="section bg-black text-white fade-in">

@@ -58,6 +58,10 @@ const HERO_ANIM = {
     if (reduced || saveData || !stickyOk) {
         canvas.style.display = 'none';
         heroEl.style.height = '100vh';
+        // Sin pista de scroll las fichas no tienen dónde turnarse: se
+        // apagan. El mismo contenido está en las secciones de abajo.
+        const copy = document.getElementById('heroCopy');
+        if (copy) copy.style.display = 'none';
         return;
     }
 
@@ -157,6 +161,50 @@ const HERO_ANIM = {
 
     let arrowHidden = false;
 
+    // --- fichas sincronizadas -------------------------------------------
+    const copyEl = document.getElementById('heroCopy');
+    const scaleEl = document.getElementById('heroScale');
+    const beats = copyEl ? Array.from(copyEl.querySelectorAll('.hero-beat')).map(el => ({
+        el,
+        rule: el.querySelector('.beat-index'),
+        in: parseFloat(el.dataset.in),
+        out: parseFloat(el.dataset.out)
+    })) : [];
+
+    // Cuánto de la ficha ocupa la entrada y la salida. Corto: si el fundido
+    // dura demasiado, el texto pasa medio transparente casi todo el tramo.
+    const BEAT_EDGE = 0.055;
+
+    function updateBeats(p) {
+        let scrim = 0;
+
+        for (const b of beats) {
+            const enter = smoothstep(clamp((p - b.in) / BEAT_EDGE, 0, 1));
+            const exit  = smoothstep(clamp((p - (b.out - BEAT_EDGE)) / BEAT_EDGE, 0, 1));
+            const alpha = enter * (1 - exit);
+
+            // Entra desde la izquierda y sale continuando hacia la derecha,
+            // así el movimiento acompaña el avance en vez de rebotar.
+            const x = lerp(-52, 0, enter) + lerp(0, 26, exit);
+
+            if (alpha !== b.alpha) {
+                b.el.style.opacity = alpha.toFixed(3);
+                b.el.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;
+                // La regla del número se dibuja de izquierda a derecha.
+                if (b.rule) b.rule.style.transform = `scaleX(${(0.15 + 0.85 * enter).toFixed(3)})`;
+                b.alpha = alpha;
+            }
+            if (alpha > scrim) scrim = alpha;
+        }
+
+        if (copyEl) copyEl.style.setProperty('--scrim', scrim.toFixed(3));
+
+        if (scaleEl) {
+            scaleEl.style.setProperty('--progress', p.toFixed(4));
+            scaleEl.classList.toggle('on', p > 0.04 && p < 0.99);
+        }
+    }
+
     function render() {
         if (!cw || !ch) return;
 
@@ -205,6 +253,8 @@ const HERO_ANIM = {
             const img = nearestReady(index);
             if (img) paint(img, coverRect(img), 1);
         }
+
+        updateBeats(p);
 
         if (arrow) {
             const hide = p > 0.02;

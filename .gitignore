@@ -13,3 +13,7 @@ Videoscroll/web-lossless/
 # deploy quedarían rotos.
 scroll_test.html
 comparar_calidad.html
+
+# Imágenes que dejó de usar la web al fusionar la sección de renders
+# con el hero. Siguen en el historial de git si hicieran falta.
+Videoscroll/_sin-uso/
