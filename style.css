@@ -288,57 +288,92 @@ body {
 /* --- Fichas sobre el render ------------------------------------------- */
 
 .hero-copy {
-    --scrim: 0;
     position: absolute;
+    inset: 0;
     z-index: 2;
-    left: clamp(1.5rem, 7vw, 7rem);
-    bottom: 26%;
-    width: min(30rem, 62vw);
-    min-height: 15rem;
-    text-align: left;
     pointer-events: none;
 }
 
-/* Sombra suave detrás del texto: aparece sólo cuando hay una ficha en
-   pantalla, así el resto del tiempo el render se ve limpio. */
-.hero-copy::before {
+/* Cada ficha se ancla donde el render está más limpio en su etapa, así que
+   no comparten posición. Las partes internas entran escalonadas desde JS. */
+.hero-beat {
+    --alpha: 0;
+    position: absolute;
+    opacity: var(--alpha);
+    text-align: left;
+}
+
+/* La sombra sigue al anclaje de cada ficha en lugar de ser una mancha
+   central: se desvanece hacia el interior del cuadro y deja el render
+   limpio del otro lado. */
+.hero-beat::before {
     content: "";
     position: absolute;
-    left: -30%;
-    top: -35%;
-    width: 165%;
-    height: 175%;
-    background: radial-gradient(ellipse at 32% 55%,
-        rgba(0, 0, 0, 0.72) 0%,
-        rgba(0, 0, 0, 0.45) 38%,
-        rgba(0, 0, 0, 0) 72%);
-    opacity: var(--scrim);
+    inset: -60% -75%;
+    z-index: -1;
     pointer-events: none;
 }
 
-/* Las fichas se turnan en el mismo lugar: van absolutas para que el largo
-   del texto no mueva la línea de base de una a otra. */
-.hero-beat {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    opacity: 0;
-    will-change: transform, opacity;
+.beat-a { left: clamp(1.5rem, 7vw, 7rem); bottom: 17%; width: min(29rem, 60vw); }
+.beat-b { right: clamp(1.5rem, 7vw, 7rem); top: 21%;    width: min(27rem, 58vw); text-align: right; }
+
+.beat-a::before {
+    background: linear-gradient(105deg,
+        rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.34) 42%, rgba(0, 0, 0, 0) 72%);
 }
 
+.beat-b::before {
+    background: linear-gradient(255deg,
+        rgba(0, 0, 0, 0.66) 0%, rgba(0, 0, 0, 0.36) 42%, rgba(0, 0, 0, 0) 74%);
+}
+
+/* La tercera cierra la secuencia centrada: la casa terminada es simétrica,
+   así que el texto centrado es el que le corresponde. Mismo peso que las
+   otras dos, sólo cambia la alineación. */
+.beat-c {
+    left: 50%;
+    bottom: 13%;
+    width: min(44rem, 82vw);
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.beat-c::before {
+    inset: -120% -60% -90%;
+    background: linear-gradient(to top,
+        rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 42%, rgba(0, 0, 0, 0) 76%);
+}
+
+/* --- partes --- */
+
 .beat-index {
+    --rule: 0;
+    position: relative;
     display: inline-block;
     font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 3px;
     color: var(--color-beige);
     padding-bottom: 0.55rem;
-    border-bottom: 1px solid var(--color-beige);
     margin-bottom: 1.1rem;
-    /* Se dibuja de izquierda a derecha al entrar la ficha. */
+}
+
+/* La regla va en un pseudo-elemento: si escalara el <span> se deformarían
+   también los dígitos. */
+.beat-index::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--color-beige);
+    transform: scaleX(var(--rule));
     transform-origin: left center;
 }
+
+.beat-b .beat-index::after { transform-origin: right center; }
+.beat-c .beat-index::after { transform-origin: center; }
 
 .beat-title {
     font-size: clamp(2.4rem, 5.2vw, 4rem);
@@ -347,16 +382,22 @@ body {
     letter-spacing: -1.5px;
     color: var(--color-white);
     margin-bottom: 0.85rem;
+    /* Refuerza la lectura sobre las zonas más claras sin tener que subir
+       la sombra de fondo y apagar el render. */
+    text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
 }
 
 .beat-text {
     font-size: clamp(1rem, 1.5vw, 1.2rem);
     font-weight: 300;
     line-height: 1.5;
-    color: rgba(252, 252, 252, 0.88);
+    color: rgba(252, 252, 252, 0.9);
     margin-bottom: 1.3rem;
     max-width: 24rem;
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.6);
 }
+
+.beat-b .beat-text { max-width: 22rem; margin-left: auto; }
 
 .beat-data {
     display: inline-block;
@@ -364,11 +405,16 @@ body {
     font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
+    white-space: nowrap;
     color: var(--color-beige);
     padding: 0.5rem 0.9rem;
     border: 1px solid rgba(223, 209, 196, 0.35);
     border-radius: 2px;
+    background: rgba(17, 17, 17, 0.3);
 }
+
+/* Centrada, el texto necesita márgenes automáticos para no pegarse a un lado. */
+.beat-c .beat-text { max-width: 30rem; margin-left: auto; margin-right: auto; }
 
 /* --- Escala de progreso, como el borde de una lámina técnica ---------- */
 
@@ -1287,13 +1333,26 @@ body {
         height: 300vh;
     }
 
-    .hero-copy {
+    /* En pantalla angosta no hay lugar para tres anclajes distintos: las
+       tres van al pie, y la variedad queda sólo en el movimiento. */
+    .beat-a, .beat-b, .beat-c {
         left: 1.5rem;
         right: 1.5rem;
-        bottom: 18%;
+        top: auto;
+        bottom: 16%;
         width: auto;
-        min-height: 13rem;
+        text-align: left;
     }
+
+    /* La tercera deja de estar centrada, así que hay que anular el
+       translateX que la centraba en pantalla grande. */
+    .beat-c { transform: none; }
+
+    .beat-b .beat-index::after,
+    .beat-c .beat-index::after { transform-origin: left center; }
+
+    .beat-b .beat-text { margin-left: 0; }
+    .beat-c .beat-text { margin-left: 0; margin-right: 0; }
 
     .beat-text { max-width: none; }
 

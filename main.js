@@ -164,40 +164,72 @@ const HERO_ANIM = {
     // --- fichas sincronizadas -------------------------------------------
     const copyEl = document.getElementById('heroCopy');
     const scaleEl = document.getElementById('heroScale');
-    const beats = copyEl ? Array.from(copyEl.querySelectorAll('.hero-beat')).map(el => ({
-        el,
-        rule: el.querySelector('.beat-index'),
-        in: parseFloat(el.dataset.in),
-        out: parseFloat(el.dataset.out)
-    })) : [];
+    // Cada movimiento define de dónde entra la ficha, hacia dónde se va, y en
+    // qué dirección la barre el clip del título. Así ninguna repite el gesto
+    // de la anterior.
+    const MOTIONS = {
+        left:  { from: [-58, 0], to: [0, -34], wipe: i => `inset(0 ${i}% 0 0)` },
+        right: { from: [58, 0],  to: [0,  34], wipe: i => `inset(0 0 0 ${i}%)` },
+        rise:  { from: [0, 44],  to: [0, -18], wipe: i => `inset(${i}% 0 0 0)` }
+    };
+
+    // Cuánto se atrasa cada parte respecto de la anterior al entrar. Es lo que
+    // hace que la ficha se arme por pasos en vez de aparecer como un bloque.
+    const STAGGER = 0.13;
+
+    const beats = copyEl ? Array.from(copyEl.querySelectorAll('.hero-beat')).map(el => {
+        const parts = Array.from(el.children);
+        return {
+            el, parts,
+            title: el.querySelector('.beat-title'),
+            rule: el.querySelector('.beat-index'),
+            motion: MOTIONS[el.dataset.motion] || MOTIONS.left,
+            in: parseFloat(el.dataset.in),
+            out: parseFloat(el.dataset.out),
+            span: 1 - STAGGER * (parts.length - 1)
+        };
+    }) : [];
 
     // Cuánto de la ficha ocupa la entrada y la salida. Corto: si el fundido
     // dura demasiado, el texto pasa medio transparente casi todo el tramo.
-    const BEAT_EDGE = 0.055;
+    const BEAT_EDGE = 0.062;
 
     function updateBeats(p) {
-        let scrim = 0;
-
         for (const b of beats) {
-            const enter = smoothstep(clamp((p - b.in) / BEAT_EDGE, 0, 1));
+            const enter = clamp((p - b.in) / BEAT_EDGE, 0, 1);
             const exit  = smoothstep(clamp((p - (b.out - BEAT_EDGE)) / BEAT_EDGE, 0, 1));
-            const alpha = enter * (1 - exit);
+            const alpha = smoothstep(enter) * (1 - exit);
 
-            // Entra desde la izquierda y sale continuando hacia la derecha,
-            // así el movimiento acompaña el avance en vez de rebotar.
-            const x = lerp(-52, 0, enter) + lerp(0, 26, exit);
+            // Nada que hacer si sigue apagada: evita tocar el DOM de gusto.
+            if (alpha === 0 && b.alpha === 0) continue;
+            if (alpha === b.alpha && exit === b.exit) continue;
+            b.alpha = alpha; b.exit = exit;
 
-            if (alpha !== b.alpha) {
-                b.el.style.opacity = alpha.toFixed(3);
-                b.el.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;
-                // La regla del número se dibuja de izquierda a derecha.
-                if (b.rule) b.rule.style.transform = `scaleX(${(0.15 + 0.85 * enter).toFixed(3)})`;
-                b.alpha = alpha;
+            b.el.style.setProperty('--alpha', alpha.toFixed(3));
+
+            const m = b.motion;
+            b.parts.forEach((part, i) => {
+                // Cada parte recorre su propia ventana dentro de la entrada.
+                const e = smoothstep(clamp((enter - i * STAGGER) / b.span, 0, 1));
+                const x = lerp(m.from[0], 0, e) + lerp(0, m.to[0], exit);
+                const y = lerp(m.from[1], 0, e) + lerp(0, m.to[1], exit);
+                part.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
+                part.style.opacity = e.toFixed(3);
+            });
+
+            // El título además se descubre con un barrido en la dirección
+            // del movimiento, como si se imprimiera.
+            if (b.title) {
+                const e = smoothstep(clamp((enter - STAGGER) / b.span, 0, 1));
+                b.title.style.clipPath = m.wipe(((1 - e) * 100).toFixed(1));
             }
-            if (alpha > scrim) scrim = alpha;
-        }
 
-        if (copyEl) copyEl.style.setProperty('--scrim', scrim.toFixed(3));
+            // La regla del número se dibuja hacia el lado que entra la ficha.
+            if (b.rule) {
+                const e = smoothstep(clamp(enter / b.span, 0, 1));
+                b.rule.style.setProperty('--rule', e.toFixed(3));
+            }
+        }
 
         if (scaleEl) {
             scaleEl.style.setProperty('--progress', p.toFixed(4));
