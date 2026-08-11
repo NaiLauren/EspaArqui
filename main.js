@@ -1,14 +1,256 @@
+/* =====================================================================
+   0. Hero animado: secuencia de frames dirigida por el scroll.
+
+   Va fuera del DOMContentLoaded para que las imágenes empiecen a bajar
+   cuanto antes. El detalle fino de la transición está documentado abajo,
+   en TRANSICION.
+   ===================================================================== */
+const HERO_ANIM = {
+    // Única perilla para cambiar de calidad. Las dos carpetas tienen los
+    // mismos 127 frames a 1920x1080; 'web-lossless' es idéntica píxel a
+    // píxel a los PNG y pesa 98 MB, 'web-q95' pesa 29 MB.
+    dir: 'Videoscroll/web-q95',
+    ext: 'webp',
+    frameCount: 127,
+
+    // Porción de la pista de scroll dedicada a la transición hero -> video.
+    heroPhase: 0.22,
+    // Dentro de esa porción, cuándo empieza y termina el fundido.
+    fadeStart: 0.40,
+    fadeEnd: 0.96,
+
+    // TRANSICION — Correspondencia entre frame_0001 y la imagen del hero, en
+    // coordenadas normalizadas: el punto (u,v) del frame cae en
+    // (u0 + us*u, v0 + vs*v) de la imagen del hero. Se obtuvo maximizando la
+    // correlación de bordes entre las dos imágenes. Las escalas X e Y no son
+    // iguales porque el render 3D no usó exactamente la misma cámara.
+    // Al derivarse del rectángulo del frame, sirve para cualquier proporción
+    // de pantalla sin volver a medir nada.
+    match: { u0: 0.115385, us: 0.813942, v0: 0.156250, vs: 0.507440 },
+
+    // La imagen del hero es más oscura y cálida que el video; la acercamos a
+    // su tono mientras se funde para que no se note el cambio de color.
+    grade: { brightness: 1.13, saturate: 0.82 },
+
+    // El encaje no puede ser perfecto (son cámaras distintas): desenfocar la
+    // capa que se va disimula el fantasma del texto y se lee como un cambio
+    // de foco. Píxeles a 1280 de ancho; 0 lo desactiva.
+    blur: 5
+};
+
+(function initHeroAnimation() {
+    const canvas = document.getElementById('heroCanvas');
+    const heroEl = document.getElementById('hero');
+    const stage = heroEl && heroEl.querySelector('.hero-stage');
+    const arrow = document.getElementById('heroScrollDown');
+    if (!canvas || !heroEl || !stage) return;
+
+    // Casos en los que no animamos y queda el fondo estático del CSS, sin
+    // descargar un solo frame:
+    //  - el visitante pidió menos movimiento en su sistema
+    //  - tiene activado el ahorro de datos
+    //  - el navegador no soporta overflow-x: clip, con lo cual el sticky del
+    //    hero no funciona y la pista quedaría como un bloque negro larguísimo
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const saveData = navigator.connection && navigator.connection.saveData;
+    const stickyOk = window.CSS && CSS.supports && CSS.supports('overflow-x', 'clip');
+
+    if (reduced || saveData || !stickyOk) {
+        canvas.style.display = 'none';
+        heroEl.style.height = '100vh';
+        return;
+    }
+
+    const context = canvas.getContext('2d');
+    const C = HERO_ANIM;
+
+    // --- carga ---------------------------------------------------------
+    const hero = new Image();
+    const frames = new Array(C.frameCount + 1);
+    const ready = new Array(C.frameCount + 1).fill(false);
+    let heroReady = false;
+
+    hero.fetchPriority = 'high';
+    hero.onload = () => { heroReady = true; requestRender(); };
+    hero.src = `${C.dir}/hero.webp`;
+
+    const framePath = i => `${C.dir}/frame_${String(i).padStart(4, '0')}.${C.ext}`;
+
+    function loadFrame(i) {
+        return new Promise(resolve => {
+            const img = new Image();
+            frames[i] = img;
+            img.onload = () => { ready[i] = true; requestRender(); resolve(); };
+            img.onerror = resolve;
+            img.src = framePath(i);
+        });
+    }
+
+    // Los primeros frames son los que participan del fundido: van sí o sí
+    // antes que el resto, para que la transición nunca se quede sin imagen.
+    const priority = [];
+    for (let i = 1; i <= Math.min(8, C.frameCount); i++) priority.push(i);
+
+    Promise.all(priority.map(loadFrame)).then(() => {
+        let next = priority.length + 1;
+        const pump = () => {
+            if (next > C.frameCount) return;
+            loadFrame(next++).then(pump);
+        };
+        for (let k = 0; k < 6; k++) pump();
+    });
+
+    // Si el frame pedido todavía no cargó, usamos el último disponible en
+    // lugar de dejar un hueco negro.
+    function nearestReady(index) {
+        for (let i = index; i >= 1; i--) if (ready[i]) return frames[i];
+        return null;
+    }
+
+    // --- dibujo --------------------------------------------------------
+    const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const smoothstep = t => t * t * (3 - 2 * t);
+    const supportsFilter = typeof context.filter === 'string';
+
+    let cw = 0, ch = 0;
+
+    function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.round(stage.clientWidth * dpr);
+        const h = Math.round(stage.clientHeight * dpr);
+        if (w === cw && h === ch) return;
+        cw = canvas.width = w;
+        ch = canvas.height = h;
+        requestRender();
+    }
+
+    // Rectángulo de destino que cubre el escenario conservando la proporción.
+    function coverRect(img) {
+        const s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+        const w = img.naturalWidth * s, h = img.naturalHeight * s;
+        return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+    }
+
+    // Rectángulo del hero que deja su contenido superpuesto al del frame 1.
+    function heroMatchRect(frameRect) {
+        const m = C.match;
+        const w = frameRect.w / m.us;
+        const h = frameRect.h / m.vs;
+        return { x: frameRect.x - m.u0 * w, y: frameRect.y - m.v0 * h, w, h };
+    }
+
+    function paint(img, r, alpha, filter) {
+        context.globalAlpha = alpha;
+        if (supportsFilter) context.filter = filter || 'none';
+        context.drawImage(img, r.x, r.y, r.w, r.h);
+        if (supportsFilter) context.filter = 'none';
+        context.globalAlpha = 1;
+    }
+
+    // Arranca y termina suave, pero sin frenar del todo: el video también
+    // empieza casi quieto, así que el relevo no se percibe.
+    function easeCamera(u) {
+        const c = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        return 0.9 * c + 0.1 * u;
+    }
+
+    let arrowHidden = false;
+
+    function render() {
+        if (!cw || !ch) return;
+
+        // Progreso sobre la pista de scroll del hero, no sobre el documento.
+        const track = heroEl.offsetHeight - stage.offsetHeight;
+        const p = track > 0
+            ? clamp(-heroEl.getBoundingClientRect().top / track, 0, 1)
+            : 0;
+
+        context.clearRect(0, 0, cw, ch);
+
+        if (p < C.heroPhase) {
+            // Fase 1: la cámara entra al logo y funde hacia el frame 1.
+            const u = p / C.heroPhase;
+            const e = easeCamera(u);
+            const fade = smoothstep(clamp((u - C.fadeStart) / (C.fadeEnd - C.fadeStart), 0, 1));
+
+            if (heroReady) {
+                const from = coverRect(hero);
+                // Sin el frame cargado no hay a dónde encuadrar: el hero se
+                // queda quieto en vez de moverse hacia un destino equivocado.
+                const to = ready[1] ? heroMatchRect(coverRect(frames[1])) : from;
+                const g = C.grade;
+                // Máximo a mitad del fundido, que es donde las dos capas se
+                // ven por igual y el fantasma molestaría más.
+                const blur = C.blur * Math.sin(Math.PI * fade) * (cw / 1280);
+
+                paint(hero, {
+                    x: lerp(from.x, to.x, e),
+                    y: lerp(from.y, to.y, e),
+                    w: lerp(from.w, to.w, e),
+                    h: lerp(from.h, to.h, e)
+                }, 1,
+                    `brightness(${lerp(1, g.brightness, fade).toFixed(3)}) ` +
+                    `saturate(${lerp(1, g.saturate, fade).toFixed(3)})` +
+                    (blur > 0.2 ? ` blur(${blur.toFixed(2)}px)` : ''));
+            }
+
+            if (fade > 0 && ready[1]) {
+                paint(frames[1], coverRect(frames[1]), heroReady ? fade : 1);
+            }
+        } else {
+            // Fase 2: secuencia de frames.
+            const q = (p - C.heroPhase) / (1 - C.heroPhase);
+            const index = clamp(Math.round(lerp(1, C.frameCount, q)), 1, C.frameCount);
+            const img = nearestReady(index);
+            if (img) paint(img, coverRect(img), 1);
+        }
+
+        if (arrow) {
+            const hide = p > 0.02;
+            if (hide !== arrowHidden) {
+                arrowHidden = hide;
+                arrow.classList.toggle('hidden', hide);
+            }
+        }
+    }
+
+    // --- loop ----------------------------------------------------------
+    let pending = false;
+    function requestRender() {
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(() => { pending = false; render(); });
+    }
+
+    window.addEventListener('scroll', requestRender, { passive: true });
+    window.addEventListener('resize', () => { resize(); requestRender(); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => { resize(); requestRender(); });
+    }
+    resize();
+})();
+
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Efecto Scroll en Navbar
     const navbar = document.querySelector('.navbar');
-    
+    const heroSection = document.getElementById('hero');
+
+    // Mientras el hero ocupa la pantalla la navegación va transparente sobre
+    // el render; se vuelve sólida justo cuando el borde inferior del hero
+    // pasa por debajo de la barra, ni antes ni después.
+    const navTrigger = () => heroSection
+        ? Math.max(50, heroSection.offsetHeight - navbar.offsetHeight)
+        : 50;
+
     window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
+        if (window.scrollY > navTrigger()) {
             navbar.classList.add('scrolled');
         } else {
             navbar.classList.remove('scrolled');
         }
-    });
+    }, { passive: true });
 
     // 2. Menú Móvil (Hamburger)
     const hamburger = document.querySelector('.hamburger');

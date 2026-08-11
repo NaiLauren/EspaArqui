@@ -40,9 +40,15 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <header class="hero">
-        <a href="#lema" class="scroll-down">↓</a>
+    <!-- Hero Section — secuencia de frames dirigida por el scroll.
+         La altura de .hero es la "pista" de scroll; .hero-stage queda pegado
+         arriba ocupando la pantalla mientras se recorre esa pista. -->
+    <header class="hero" id="hero">
+        <div class="hero-stage">
+            <canvas id="heroCanvas" aria-hidden="true"></canvas>
+            <div class="hero-veil" aria-hidden="true"></div>
+            <a href="#lema" class="scroll-down" id="heroScrollDown">↓</a>
+        </div>
     </header>
 
     <!-- Lema -->

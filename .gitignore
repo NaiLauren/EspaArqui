@@ -1,0 +1,15 @@
+# Material pesado que NO hace falta para que la web funcione.
+# Todo esto vive sólo en la máquina de trabajo.
+
+# Video master y frames extraídos en PNG (~176 MB).
+# Los frames se regeneran desde el .mp4; la web usa Videoscroll/web-q95/.
+Videoscroll/*.mp4
+Videoscroll/frames/
+
+# Set lossless (98 MB): se usó para comparar calidad, la web no lo carga.
+Videoscroll/web-lossless/
+
+# Andamios de desarrollo: apuntan a las carpetas de arriba, así que en el
+# deploy quedarían rotos.
+scroll_test.html
+comparar_calidad.html
