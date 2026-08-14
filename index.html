@@ -6,13 +6,33 @@
     <title>Espacio Arquitectura | Hacemos lo que funciona</title>
     <meta name="description" content="Espacio Arquitectura. Estudio de arquitectura enfocado en simplicidad, eficiencia y profesionalismo. Diseño residencial, comercial y reformas integrales.">
 
-    <!-- Open Graph / WhatsApp & Redes -->
+    <link rel="canonical" href="https://espacio-arquitectura.vercel.app/">
+
+    <!-- Open Graph / WhatsApp & Redes.
+         Las URL van absolutas a propósito: el scraper de WhatsApp no ejecuta
+         JavaScript ni resuelve rutas relativas, así que si acá dijera
+         "assets/..." descartaría la imagen y el link saldría sin miniatura.
+         La miniatura es 1200x630 y pesa 103 KB: WhatsApp no baja imágenes
+         grandes para el preview. -->
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Espacio Arquitectura">
+    <meta property="og:locale" content="es_AR">
     <meta property="og:title" content="Espacio Arquitectura">
     <meta property="og:description" content="Hacemos lo que funciona. Estudio de arquitectura: diseño residencial, comercial y reformas integrales.">
-    <meta property="og:image" content="EspacioArquitectura.png">
-    <meta property="og:url" content="">
+    <meta property="og:url" content="https://espacio-arquitectura.vercel.app/">
+    <meta property="og:image" content="https://espacio-arquitectura.vercel.app/assets/og-espacio-arquitectura.jpg">
+    <meta property="og:image:secure_url" content="https://espacio-arquitectura.vercel.app/assets/og-espacio-arquitectura.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <!-- Sin las medidas, WhatsApp no sabe qué espacio reservar y a veces
+         descarta la imagen antes de terminar de bajarla. -->
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Logotipo de Espacio Arquitectura en metal, con planos y maquetas grabados.">
+
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Espacio Arquitectura">
+    <meta name="twitter:description" content="Hacemos lo que funciona. Estudio de arquitectura: diseño residencial, comercial y reformas integrales.">
+    <meta name="twitter:image" content="https://espacio-arquitectura.vercel.app/assets/og-espacio-arquitectura.jpg">
 
     <!-- Favicon SVG -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%23111'/><text x='50' y='68' font-size='55' font-family='Inter,sans-serif' font-weight='800' fill='%23DFD1C4' text-anchor='middle'>EA</text></svg>">
