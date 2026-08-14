@@ -14,10 +14,30 @@ const HERO_ANIM = {
     frameCount: 127,
 
     // Porción de la pista de scroll dedicada a la transición hero -> video.
-    heroPhase: 0.22,
+    heroPhase: 0.17,
     // Dentro de esa porción, cuándo empieza y termina el fundido.
     fadeStart: 0.40,
     fadeEnd: 0.96,
+
+    // PARADAS — Qué frame se ve en cada punto de la pista. Antes esto era una
+    // recta (scroll parejo, frames parejos) y por eso los textos pasaban de
+    // largo. Ahora es una escalera: los tramos donde el número de frame casi
+    // no cambia son las paradas, y caen justo sobre las tres fichas.
+    //
+    // Los frames 24, 60 y 97 son los que ya se veían en el centro de cada
+    // ficha, así que el emparejamiento texto-imagen queda intacto.
+    //
+    //          scroll  frame
+    frameStops: [
+        [0.17,    1],   // termina la transición del hero
+        [0.31,   22],   // ── parada 1: Plano 3D
+        [0.43,   26],   //
+        [0.53,   58],   // ── parada 2: Estructura
+        [0.65,   62],   //
+        [0.75,   95],   // ── parada 3: Render exterior
+        [0.87,   99],   //
+        [1.00,  127]    // final
+    ],
 
     // TRANSICION — Correspondencia entre frame_0001 y la imagen del hero, en
     // coordenadas normalizadas: el punto (u,v) del frame cae en
@@ -31,6 +51,12 @@ const HERO_ANIM = {
     // La imagen del hero es más oscura y cálida que el video; la acercamos a
     // su tono mientras se funde para que no se note el cambio de color.
     grade: { brightness: 1.13, saturate: 0.82 },
+
+    // IMANES — Centros de las tres paradas. El scroll que termina cerca de
+    // uno se acomoda solo en él. Usa 'proximity', no 'mandatory': sólo actúa
+    // si soltaste cerca, así nunca atrapa a quien pasa de largo buscando el
+    // contenido de abajo. Dejar la lista vacía desactiva el imán.
+    snapAt: [0.37, 0.59, 0.81],
 
     // El encaje no puede ser perfecto (son cámaras distintas): desenfocar la
     // capa que se va disimula el fantasma del texto y se lee como un cambio
@@ -119,10 +145,36 @@ const HERO_ANIM = {
 
     let cw = 0, ch = 0;
 
+    // Marcas invisibles sobre las que engancha el scroll. Van posicionadas en
+    // píxeles medidos y no en porcentajes, porque la pista real depende del
+    // alto de la pantalla y en móvil el 100dvh cambia con la barra.
+    const snaps = C.snapAt.map(() => {
+        const el = document.createElement('div');
+        el.className = 'hero-snap';
+        el.setAttribute('aria-hidden', 'true');
+        heroEl.appendChild(el);
+        return el;
+    });
+
+    if (snaps.length) document.documentElement.classList.add('hero-snapping');
+
+    function placeSnaps() {
+        const track = heroEl.offsetHeight - stage.offsetHeight;
+        snaps.forEach((el, i) => { el.style.top = Math.round(C.snapAt[i] * track) + 'px'; });
+    }
+
     function resize() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const w = Math.round(stage.clientWidth * dpr);
         const h = Math.round(stage.clientHeight * dpr);
+
+        // Si el navegador todavía no calculó el tamaño, no guardamos la
+        // medición: con cw y ch arrancando en cero, un cero medido daría
+        // "no cambió nada" y el canvas se quedaría sin dimensionar para
+        // siempre, con el hero en blanco.
+        if (!w || !h) return;
+
+        placeSnaps();
         if (w === cw && h === ch) return;
         cw = canvas.width = w;
         ch = canvas.height = h;
@@ -150,6 +202,26 @@ const HERO_ANIM = {
         context.drawImage(img, r.x, r.y, r.w, r.h);
         if (supportsFilter) context.filter = 'none';
         context.globalAlpha = 1;
+    }
+
+    // Qué frame corresponde a un punto de la pista, según la tabla de
+    // paradas. Entre dos anclajes interpola con suavizado en vez de en línea
+    // recta: así el render frena al entrar en cada parada y arranca de nuevo
+    // al salir, en lugar de cortar de golpe.
+    //
+    // Durante una parada el frame igual avanza de a poco (cuatro frames en
+    // todo el tramo). Es a propósito: congelarlo del todo se lee como que la
+    // página se colgó, y este resto de movimiento la mantiene viva.
+    function frameAt(p) {
+        const s = C.frameStops;
+        if (p <= s[0][0]) return s[0][1];
+        for (let i = 1; i < s.length; i++) {
+            if (p <= s[i][0]) {
+                const t = (p - s[i - 1][0]) / (s[i][0] - s[i - 1][0]);
+                return lerp(s[i - 1][1], s[i][1], smoothstep(t));
+            }
+        }
+        return s[s.length - 1][1];
     }
 
     // Arranca y termina suave, pero sin frenar del todo: el video también
@@ -279,9 +351,8 @@ const HERO_ANIM = {
                 paint(frames[1], coverRect(frames[1]), heroReady ? fade : 1);
             }
         } else {
-            // Fase 2: secuencia de frames.
-            const q = (p - C.heroPhase) / (1 - C.heroPhase);
-            const index = clamp(Math.round(lerp(1, C.frameCount, q)), 1, C.frameCount);
+            // Fase 2: secuencia de frames, con las paradas de frameStops.
+            const index = clamp(Math.round(frameAt(p)), 1, C.frameCount);
             const img = nearestReady(index);
             if (img) paint(img, coverRect(img), 1);
         }
@@ -306,6 +377,13 @@ const HERO_ANIM = {
     }
 
     window.addEventListener('scroll', requestRender, { passive: true });
+
+    // ResizeObserver es el que resuelve el arranque: avisa en cuanto el
+    // escenario tiene medidas reales, sin depender de que el script corra
+    // después del cálculo de estilos. Los otros dos quedan de respaldo.
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => { resize(); requestRender(); }).observe(stage);
+    }
     window.addEventListener('resize', () => { resize(); requestRender(); });
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', () => { resize(); requestRender(); });

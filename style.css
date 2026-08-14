@@ -217,7 +217,10 @@ body {
 /* Hero Section - secuencia de frames dirigida por el scroll */
 .hero {
     position: relative;
-    height: 400vh;              /* pista de scroll: cuánto dura la animación */
+    /* Pista de scroll: cuánto dura la animación. Se alargó al agregar las
+       tres paradas, para que el tiempo extra salga de la pista y no de
+       acelerar los tramos en movimiento. */
+    height: 500vh;
     background-color: var(--color-black);
 }
 
@@ -239,6 +242,22 @@ body {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+/* Imán en las tres paradas. La clase la pone main.js, así que si la
+   animación no corre el scroll queda completamente libre. 'proximity' sólo
+   engancha si el scroll terminó cerca de una marca: nunca frena a quien
+   está pasando de largo hacia el contenido. */
+.hero-snapping { scroll-snap-type: y proximity; }
+
+.hero-snap {
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    scroll-snap-align: start;
+    pointer-events: none;
+    visibility: hidden;
 }
 
 /* Oscurece sólo la franja de arriba para que la navegación se lea siempre,
@@ -1330,7 +1349,7 @@ body {
 
     .hero {
         /* Pista más corta: en móvil se scrollea con el pulgar. */
-        height: 300vh;
+        height: 400vh;
     }
 
     /* En pantalla angosta no hay lugar para tres anclajes distintos: las
