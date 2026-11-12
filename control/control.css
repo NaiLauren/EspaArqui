@@ -2,31 +2,52 @@
    Hoja aparte de la web pública: comparte la paleta y la tipografía, pero no
    los estilos. La web es una pieza de presentación con animaciones de scroll;
    esto es una herramienta de trabajo que alguien mira diez veces por día, así
-   que prioriza densidad y lectura rápida por encima del efecto. */
+   que prioriza lectura rápida y calma visual por encima del efecto.
+
+   Criterios del diseño:
+   - Grises cálidos, no neutros: al lado del beige de la marca, un gris puro
+     se ve azulado y "de sistema". Todos los grises tiran levemente a tierra.
+   - Las tarjetas se separan del fondo con una sombra muy suave y no con un
+     borde marcado. El borde de 1px dibujaba una grilla de cajas; la sombra
+     deja que el contenido mande.
+   - Un solo acento fuerte por pantalla (el negro de la marca). El color de
+     estado (verde, ámbar, rojo) se reserva para lo que pide una acción. */
 
 :root {
-    --negro: #111111;
-    --blanco: #FCFCFC;
+    --negro: #121212;
+    --tinta: #1B1A19;
+    --blanco: #FCFCFB;
     --beige: #DFD1C4;
-    --gris: #888888;
-
-    --linea: #E4E0DB;
-    --fondo: #F4F2EF;
+    --beige-suave: #F2ECE6;
+    --beige-osc: #B49E8A;
+    --gris: #827C75;
+    --gris-claro: #B3ADA6;
+    --linea: #ECE8E3;
+    --linea-fuerte: #DCD6CF;
+    --fondo: #F6F4F1;
     --papel: #FFFFFF;
+    --campo: #FBFAF8;
 
     /* Semáforo de estados. Tonos apagados a propósito: en una pantalla que se
        mira todo el día, el rojo saturado cansa y deja de llamar la atención
        justo cuando hace falta. */
-    --ok: #2F6E4B;
-    --ok-suave: #E4F0E8;
-    --alerta: #9A5B14;
-    --alerta-suave: #FBEEDC;
-    --mal: #9B2F2F;
-    --mal-suave: #F7E5E5;
+    --ok: #2E6B4A;
+    --ok-suave: #E5F0E9;
+    --alerta: #96600F;
+    --alerta-suave: #FAF0E0;
+    --mal: #A03838;
+    --mal-suave: #F8E7E6;
 
-    --fuente: 'Inter', system-ui, sans-serif;
-    --radio: 8px;
-    --sombra: 0 1px 2px rgba(17, 17, 17, 0.06), 0 4px 12px rgba(17, 17, 17, 0.04);
+    --fuente: 'Inter', system-ui, -apple-system, sans-serif;
+    --radio: 14px;
+    --radio-chico: 10px;
+    --sombra-1: 0 0 0 1px rgba(27, 26, 25, 0.045), 0 1px 2px rgba(27, 26, 25, 0.05);
+    --sombra-2: 0 0 0 1px rgba(27, 26, 25, 0.04), 0 12px 32px -12px rgba(27, 26, 25, 0.22), 0 2px 6px rgba(27, 26, 25, 0.05);
+    --transicion: 160ms cubic-bezier(0.2, 0.7, 0.3, 1);
+
+    /* Alto de la barra superior en el teléfono. Lo usan también la tira de
+       días y el aviso para pegarse justo debajo sin calcularlo a ojo. */
+    --alto-barra: 56px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -34,10 +55,12 @@
 body {
     font-family: var(--fuente);
     background: var(--fondo);
-    color: var(--negro);
+    color: var(--tinta);
     line-height: 1.5;
     font-size: 15px;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 button, input, select, textarea, label {
@@ -45,7 +68,24 @@ button, input, select, textarea, label {
     touch-action: manipulation;
 }
 
+button { font-family: inherit; color: inherit; }
+
 [hidden] { display: none !important; }
+
+.ico {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Los montos se leen en columna: con cifras de ancho fijo, "$ 1.111.111" y
+   "$ 9.999.999" ocupan lo mismo y los ojos no saltan. */
+.ficha-monto, .total-valor, .item-detalle, .tira-dia b, .dia-numero { font-variant-numeric: tabular-nums; }
 
 /* --------------------------------------------------------------------------
    Pantallas de entrada (configuración y login)
@@ -53,39 +93,53 @@ button, input, select, textarea, label {
 
 .pantalla {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 1.5rem;
     padding: 1.5rem;
-    background: var(--negro);
+    background:
+        radial-gradient(ellipse 70% 45% at 50% 0%, rgba(223, 209, 196, 0.13), transparent 70%),
+        var(--negro);
 }
 
 .caja {
     background: var(--papel);
-    padding: 2.5rem;
-    border-radius: var(--radio);
+    padding: 2.25rem 1.75rem 1.75rem;
+    border-radius: 22px;
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
 }
 
 .caja-ancha { max-width: 520px; }
 
-.marca {
-    font-size: 2rem;
+/* El mismo cuadrado negro con "EA" que el ícono de la pantalla de inicio: lo
+   que el cliente toca en el teléfono y lo primero que ve al abrir coinciden. */
+.monograma {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--negro);
+    color: var(--beige);
+    display: grid;
+    place-items: center;
     font-weight: 800;
+    font-size: 1.15rem;
     letter-spacing: -0.02em;
-    margin-bottom: 0.5rem;
-}
-
-.caja h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
     margin-bottom: 1rem;
 }
 
+.login-titulo { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.025em; line-height: 1.2; }
+.login-sub { color: var(--gris); font-size: 0.92rem; margin-bottom: 0.75rem; }
+.login-pie { color: #6B655F; font-size: 0.78rem; letter-spacing: 0.02em; }
+
+.caja h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
 .caja p { color: var(--gris); font-size: 0.9rem; }
 
 .pasos {
@@ -104,8 +158,8 @@ code {
     font-size: 0.85em;
     background: var(--fondo);
     padding: 0.1em 0.35em;
-    border-radius: 3px;
-    color: var(--negro);
+    border-radius: 4px;
+    color: var(--tinta);
 }
 
 /* --------------------------------------------------------------------------
@@ -113,38 +167,61 @@ code {
    -------------------------------------------------------------------------- */
 
 label {
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.78rem;
+    font-weight: 500;
     color: var(--gris);
-    margin-top: 0.75rem;
+    margin-top: 0.85rem;
+    margin-bottom: 0.15rem;
+    display: block;
 }
 
 input, select, textarea {
     font-family: var(--fuente);
     font-size: 0.95rem;
-    padding: 0.6rem 0.7rem;
+    min-height: 44px;
+    padding: 0.6rem 0.8rem;
     border: 1px solid var(--linea);
-    border-radius: var(--radio);
-    background: var(--papel);
-    color: var(--negro);
+    border-radius: var(--radio-chico);
+    background: var(--campo);
+    color: var(--tinta);
     width: 100%;
+    transition: border-color var(--transicion), box-shadow var(--transicion), background var(--transicion);
 }
 
+input::placeholder, textarea::placeholder { color: var(--gris-claro); }
+
+input:hover, select:hover, textarea:hover { border-color: var(--linea-fuerte); }
+
+/* Anillo de foco suave en el tono de la marca en vez del contorno negro duro
+   del navegador: se ve dónde está el foco sin que el formulario grite. */
 input:focus, select:focus, textarea:focus {
-    outline: 2px solid var(--negro);
-    outline-offset: -1px;
-    border-color: var(--negro);
+    outline: none;
+    border-color: var(--beige-osc);
+    background: var(--papel);
+    box-shadow: 0 0 0 3px rgba(180, 158, 138, 0.22);
 }
 
-textarea { resize: vertical; min-height: 70px; }
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.2rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23827C75' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 16px;
+}
+
+textarea { resize: vertical; min-height: 84px; }
+
+input[type="checkbox"] { min-height: 0; }
 
 .error {
     color: var(--mal);
     background: var(--mal-suave);
-    font-size: 0.85rem;
-    padding: 0.6rem 0.75rem;
-    border-radius: var(--radio);
-    margin-top: 0.75rem;
+    font-size: 0.86rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radio-chico);
+    margin-top: 0.85rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -152,42 +229,86 @@ textarea { resize: vertical; min-height: 70px; }
    -------------------------------------------------------------------------- */
 
 .btn {
-    font-family: var(--fuente);
-    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
     font-weight: 600;
-    padding: 0.55rem 1rem;
-    border: 1px solid transparent;
-    border-radius: var(--radio);
+    min-height: 40px;
+    padding: 0 1rem;
+    border: none;
+    border-radius: var(--radio-chico);
     cursor: pointer;
     background: none;
-    color: var(--negro);
-    transition: background 0.15s ease, border-color 0.15s ease;
+    color: var(--tinta);
+    transition: background var(--transicion), box-shadow var(--transicion), transform var(--transicion), color var(--transicion);
     white-space: nowrap;
 }
 
-.btn-primario { background: var(--negro); color: var(--blanco); margin-top: 1.25rem; }
-.btn-primario:hover { background: #2a2a2a; }
+.btn:active { transform: scale(0.98); }
+.btn .ico { width: 17px; height: 17px; stroke-width: 2; }
 
-/* En las cabeceras el botón primario va alineado con el título, sin el margen
-   que necesita al cerrar un formulario. */
-.vista-cabecera .btn-primario, .modal-pie .btn-primario { margin-top: 0; }
+.btn-primario { background: var(--negro); color: var(--blanco); }
+.btn-primario:hover { background: #2A2928; }
 
-.btn-fantasma { border-color: var(--linea); background: var(--papel); }
-.btn-fantasma:hover { border-color: var(--negro); }
+.btn-ancho { width: 100%; min-height: 48px; margin-top: 1.4rem; font-size: 0.95rem; }
 
-.btn-peligro { color: var(--mal); border-color: var(--linea); background: var(--papel); }
-.btn-peligro:hover { background: var(--mal-suave); border-color: var(--mal); }
+.btn-suave { background: var(--papel); box-shadow: var(--sombra-1); }
+.btn-suave:hover { box-shadow: 0 0 0 1px var(--linea-fuerte), 0 1px 2px rgba(27, 26, 25, 0.06); }
 
-.btn-icono {
-    padding: 0.35rem 0.6rem;
-    font-size: 1.1rem;
-    line-height: 1;
-    border-color: var(--linea);
-    background: var(--papel);
+.btn-peligro { color: var(--mal); background: transparent; }
+.btn-peligro:hover { background: var(--mal-suave); }
+
+/* Acción rápida dentro de una ficha ("Marcar cobrado"): visible pero sin
+   competir con el monto, que es lo que se vino a mirar. */
+.btn-accion {
+    min-height: 34px;
+    padding: 0 0.8rem;
+    font-size: 0.8rem;
+    background: var(--fondo);
+    color: var(--tinta);
 }
-.btn-icono:hover { border-color: var(--negro); }
+.btn-accion:hover { background: var(--beige-suave); }
+.btn-accion .ico { width: 15px; height: 15px; stroke-width: 2.25; }
 
 .btn:disabled { opacity: 0.5; cursor: default; }
+
+.btn-redondo {
+    width: 38px;
+    height: 38px;
+    display: inline-grid;
+    place-items: center;
+    border: none;
+    border-radius: 50%;
+    background: var(--papel);
+    box-shadow: var(--sombra-1);
+    cursor: pointer;
+    color: var(--tinta);
+    flex: none;
+    transition: box-shadow var(--transicion), transform var(--transicion);
+}
+.btn-redondo:hover { box-shadow: 0 0 0 1px var(--linea-fuerte), 0 1px 3px rgba(27, 26, 25, 0.08); }
+.btn-redondo:active { transform: scale(0.94); }
+.btn-redondo .ico { width: 18px; height: 18px; stroke-width: 2; }
+
+/* Lápiz de editar en las fichas: chico y apagado, porque la ficha entera ya
+   abre algo al tocarla y el lápiz es la segunda opción, no la primera. */
+.btn-editar {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: none;
+    background: none;
+    border-radius: 50%;
+    color: var(--gris-claro);
+    cursor: pointer;
+    flex: none;
+    transition: background var(--transicion), color var(--transicion);
+}
+.btn-editar:hover { background: var(--fondo); color: var(--tinta); }
+.btn-editar .ico { width: 16px; height: 16px; }
 
 /* --------------------------------------------------------------------------
    Barra superior
@@ -196,57 +317,94 @@ textarea { resize: vertical; min-height: 70px; }
 .barra {
     background: var(--negro);
     color: var(--blanco);
-    padding: 0.6rem 1.5rem;
+    padding: 0 1.5rem;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
     position: sticky;
     top: 0;
-    z-index: 10;
-    flex-wrap: wrap;
+    z-index: 30;
 }
 
-.barra-izq, .barra-der { display: flex; align-items: center; gap: 1rem; }
+.barra-izq, .barra-der { display: flex; align-items: center; gap: 1.25rem; }
 
 .marca-chica {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--beige);
+    color: var(--negro);
+    display: grid;
+    place-items: center;
     font-weight: 800;
-    font-size: 1.05rem;
-    color: var(--beige);
+    font-size: 0.78rem;
     letter-spacing: -0.02em;
+    flex: none;
 }
 
-.nav { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+/* En el escritorio la fecha ya está en el saludo de la agenda; repetida en la
+   barra sólo sumaría ruido. Aparece en el teléfono, donde el saludo queda
+   abajo y la barra es lo único fijo. */
+.fecha-hoy { display: none; }
+
+.nav { display: flex; gap: 0.2rem; }
 
 .nav-item {
-    font-family: var(--fuente);
-    font-size: 0.9rem;
-    font-weight: 400;
-    color: var(--gris);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #9C968F;
     background: none;
     border: none;
-    padding: 0.4rem 0.75rem;
-    border-radius: var(--radio);
+    padding: 0.5rem 0.85rem;
+    border-radius: 9px;
     cursor: pointer;
+    transition: color var(--transicion), background var(--transicion);
 }
 
-.nav-item:hover { color: var(--blanco); }
-.nav-item.activo { color: var(--negro); background: var(--beige); font-weight: 600; }
+.nav-item .ico { width: 17px; height: 17px; }
+.nav-item:hover { color: var(--blanco); background: rgba(255, 255, 255, 0.05); }
+.nav-item.activo { color: var(--negro); background: var(--beige); }
 
-.usuario { font-size: 0.85rem; color: var(--gris); }
+.usuario { font-size: 0.82rem; color: #8C867F; }
 
-.barra .btn-fantasma {
-    background: none;
-    color: var(--blanco);
-    border-color: #333;
+.btn-salir {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    color: #B5AFA8;
+    cursor: pointer;
+    transition: background var(--transicion), color var(--transicion);
 }
-.barra .btn-fantasma:hover { border-color: var(--beige); }
+.btn-salir:hover { background: rgba(255, 255, 255, 0.12); color: var(--blanco); }
+.btn-salir .ico { width: 17px; height: 17px; }
 
 /* --------------------------------------------------------------------------
-   Contenido
+   Contenido y cabeceras
    -------------------------------------------------------------------------- */
 
-.contenido { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+.contenido { padding: 2rem 1.5rem 3rem; max-width: 1280px; margin: 0 auto; }
+
+/* Las vistas entran con un fundido corto: sin él, al cambiar de pestaña la
+   pantalla parpadea en blanco mientras llegan los datos. */
+.vista { animation: entrar 220ms ease-out; }
+@keyframes entrar { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.saludo { margin-bottom: 1.5rem; }
+.saludo h1 { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+.resumen-dia { color: var(--gris); font-size: 0.92rem; margin-top: 0.3rem; }
+.resumen-dia b { color: var(--tinta); font-weight: 600; }
+.resumen-dia .rojo { color: var(--mal); }
+
+.vista-titulo { font-size: 1.75rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
 
 .vista-cabecera {
     display: flex;
@@ -257,18 +415,19 @@ textarea { resize: vertical; min-height: 70px; }
     flex-wrap: wrap;
 }
 
-.vista-cabecera h2 { font-size: 1.3rem; font-weight: 600; }
-
 .semana-nav { display: flex; align-items: center; gap: 0.5rem; }
-.semana-nav h2 { font-size: 1.1rem; font-weight: 600; min-width: 13rem; }
+.semana-nav h2 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.015em; min-width: 12.5rem; text-align: center; }
+.semana-nav .btn-suave { margin-left: 0.25rem; min-height: 38px; border-radius: 19px; padding: 0 1rem; }
 
 /* --------------------------------------------------------------------------
    Agenda
    -------------------------------------------------------------------------- */
 
+.tira-dias { display: none; }
+
 .agenda-layout {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     gap: 1.25rem;
     align-items: start;
 }
@@ -276,112 +435,170 @@ textarea { resize: vertical; min-height: 70px; }
 .semana {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 1px;
-    background: var(--linea);
-    border: 1px solid var(--linea);
+    background: var(--papel);
     border-radius: var(--radio);
+    box-shadow: var(--sombra-1);
     overflow: hidden;
 }
 
 .dia {
-    background: var(--papel);
-    min-height: 190px;
-    padding: 0.6rem 0.5rem;
+    min-height: 220px;
+    padding: 0.75rem 0.5rem 0.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+    border-left: 1px solid var(--linea);
+    /* Compensa la barra fija al saltar a un día desde la tira. */
+    scroll-margin-top: calc(var(--alto-barra) + 80px);
 }
+.dia:first-child { border-left: none; }
 
 /* El fin de semana se apaga para que la semana laboral salte a la vista. */
-.dia.finde { background: #FAF9F7; }
+.dia.finde { background: #FBFAF8; }
 
-.dia.hoy { background: var(--beige); }
+.dia-cabecera { display: flex; align-items: center; justify-content: space-between; padding: 0 0.25rem 0.35rem; }
+.dia-nombre { font-size: 0.7rem; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.06em; }
+.dia-numero {
+    font-size: 0.95rem;
+    font-weight: 600;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+}
 
-.dia-cabecera { display: flex; align-items: baseline; justify-content: space-between; }
-.dia-nombre { font-size: 0.75rem; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.04em; }
-.dia.hoy .dia-nombre { color: var(--negro); }
-.dia-numero { font-size: 1rem; font-weight: 600; }
+/* Hoy se marca con el número dentro de un círculo negro, como en cualquier
+   calendario, en vez de teñir toda la columna: así la columna de hoy se lee
+   igual que las otras y sólo el número avisa. */
+.dia.hoy .dia-nombre { color: var(--tinta); }
+.dia.hoy .dia-numero { background: var(--negro); color: var(--beige); }
+/* Con dos clases para ganarle a `.etiqueta`, que está más abajo en la hoja y
+   la volvía a mostrar. En la grilla el círculo negro ya dice "hoy". */
+.etiqueta.etiqueta-hoy { display: none; }
+.evento-hora.sin-hora { display: none; }
 
 /* Botón invisible que ocupa el resto del día: hace que todo el hueco libre
    sea clickeable para crear algo en esa fecha, sin dibujar un "+" en cada
-   casilla. */
-.dia-hueco { flex: 1; min-height: 1.5rem; cursor: pointer; border: none; background: none; }
+   casilla. Al pasar el mouse aparece un "+" tenue para que se descubra. */
+.dia-hueco {
+    flex: 1;
+    min-height: 2rem;
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    color: transparent;
+    font-size: 1.1rem;
+    transition: background var(--transicion), color var(--transicion);
+}
+.dia-hueco::after { content: "+"; }
+.dia-hueco:hover { background: var(--fondo); color: var(--gris-claro); }
 
-/* La ficha son dos botones: el cuerpo abre el formulario y el tilde da por
+/* La ficha son dos botones: el cuerpo abre el formulario y el círculo da por
    hecho el trabajo sin abrir nada. Por eso el contenedor es un div y es él
-   quien dibuja el recuadro. */
+   quien dibuja el recuadro.
+   El acento del costado es una sombra interior y no un border-left: sobre una
+   caja redondeada el borde izquierdo se curva con la esquina y queda una
+   media luna; la sombra interior queda recta. */
 .evento {
     display: flex;
     align-items: stretch;
-    border-radius: 6px;
-    border: 1px solid var(--linea);
-    border-left: 3px solid var(--gris);
+    border-radius: 9px;
     background: var(--papel);
+    box-shadow: inset 3px 0 0 var(--beige-osc), 0 0 0 1px var(--linea);
     overflow: hidden;
+    transition: box-shadow var(--transicion);
 }
 
-.evento:hover { border-color: var(--negro); }
-.evento.reunion { border-left-color: var(--negro); background: #F3F1EE; }
-.evento.trabajo { border-left-color: var(--beige); }
+.evento:hover { box-shadow: inset 3px 0 0 var(--beige-osc), 0 0 0 1px var(--linea-fuerte), 0 2px 6px rgba(27, 26, 25, 0.06); }
+.evento.reunion { background: var(--beige-suave); box-shadow: inset 3px 0 0 var(--negro), 0 0 0 1px rgba(27, 26, 25, 0.04); }
+.evento.reunion:hover { box-shadow: inset 3px 0 0 var(--negro), 0 0 0 1px var(--linea-fuerte), 0 2px 6px rgba(27, 26, 25, 0.06); }
+.evento.atrasado { box-shadow: inset 3px 0 0 var(--mal), 0 0 0 1px var(--linea); }
 
 .evento-cuerpo {
     flex: 1;
     min-width: 0;
     text-align: left;
-    font-family: var(--fuente);
     font-size: 0.8rem;
-    color: inherit;
-    padding: 0.4rem 0.5rem;
+    padding: 0.5rem 0.25rem 0.5rem 0.7rem;
     background: none;
     border: none;
     cursor: pointer;
 }
 
-.evento-tilde {
-    flex: 0 0 auto;
-    width: 2.25rem;
-    border: none;
-    border-left: 1px solid var(--linea);
-    background: none;
-    /* Apagado mientras está pendiente: se ve que el tilde está, pero no
-       compite con el título. Al marcarlo hecho se enciende en verde. */
-    color: #CFCAC4;
-    font-size: 0.95rem;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.evento-tilde:hover { background: var(--fondo); color: var(--gris); }
-
-.evento.hecho .evento-cuerpo { opacity: 0.45; }
-.evento.hecho .evento-titulo { text-decoration: line-through; }
-.evento.hecho .evento-tilde { color: var(--ok); background: var(--ok-suave); }
-.evento.cancelado .evento-cuerpo { opacity: 0.4; }
-.evento.cancelado .evento-titulo { text-decoration: line-through; }
-
-.evento-hora { font-size: 0.7rem; color: var(--gris); font-weight: 600; }
+.evento-hora { font-size: 0.7rem; color: var(--gris); font-weight: 600; margin-right: 0.15rem; }
 .evento-titulo { font-weight: 600; line-height: 1.3; word-break: break-word; }
 /* La hora queda en el mismo renglón del título, como en cualquier calendario;
    la obra baja a su propia línea para no leerse pegada al título. */
-.evento-obra { font-size: 0.7rem; color: var(--gris); display: block; }
+.evento-obra { font-size: 0.72rem; color: var(--gris); display: block; margin-top: 0.1rem; }
+
+/* El círculo de "hecho" imita a los recordatorios del teléfono: vacío
+   mientras está pendiente, lleno en verde con el tilde al terminar. Es un
+   gesto que el cliente ya conoce y no hay que explicarle. */
+.evento-tilde {
+    flex: none;
+    width: 2.25rem;
+    display: grid;
+    place-items: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.circulo {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid var(--gris-claro);
+    display: grid;
+    place-items: center;
+    color: transparent;
+    transition: background var(--transicion), border-color var(--transicion), color var(--transicion), transform var(--transicion);
+}
+.circulo .ico { width: 12px; height: 12px; stroke-width: 3; }
+.evento-tilde:hover .circulo { border-color: var(--ok); color: var(--ok); }
+.evento-tilde:active .circulo { transform: scale(0.88); }
+
+.evento.hecho { background: var(--papel); box-shadow: inset 3px 0 0 var(--linea-fuerte), 0 0 0 1px var(--linea); }
+.evento.hecho .evento-cuerpo { opacity: 0.5; }
+.evento.hecho .evento-titulo { text-decoration: line-through; text-decoration-color: var(--gris-claro); }
+.evento.hecho .circulo { background: var(--ok); border-color: var(--ok); color: var(--papel); }
+.evento.cancelado .evento-cuerpo { opacity: 0.4; }
+.evento.cancelado .evento-titulo { text-decoration: line-through; }
+
+.evento.atrasado .evento-hora { color: var(--mal); }
 
 .panel-lateral {
     background: var(--papel);
-    border: 1px solid var(--linea);
     border-radius: var(--radio);
-    padding: 1rem;
+    box-shadow: var(--sombra-1);
+    padding: 1.1rem 1rem 1rem;
 }
 
-.panel-lateral h3 { font-size: 0.95rem; font-weight: 600; }
-.panel-lateral .sub { font-size: 0.8rem; color: var(--gris); margin-bottom: 0.75rem; }
-.panel-lateral .evento { margin-bottom: 0.4rem; }
+.panel-cabecera { display: flex; align-items: center; gap: 0.5rem; }
+.panel-lateral h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.015em; }
+.panel-lateral .sub { font-size: 0.8rem; color: var(--gris); margin: 0.1rem 0 0.85rem; }
+.panel-lateral .evento { margin-bottom: 0.45rem; }
+
+.contador {
+    font-size: 0.72rem;
+    font-weight: 600;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 0.4rem;
+    border-radius: 11px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--fondo);
+    color: var(--gris);
+}
+.contador.rojo { background: var(--mal-suave); color: var(--mal); }
+.contador:empty { display: none; }
 
 /* Acá el encabezado no es una hora sino "Sin fecha" o "Venció el 9 nov", que
    pegado al título se lee como una sola frase. Va en su propio renglón. */
-.panel-lateral .evento-hora { display: block; }
-
-.evento.atrasado { border-left-color: var(--mal); }
-.evento.atrasado .evento-hora { color: var(--mal); }
+.panel-lateral .evento-hora { display: block; margin-bottom: 0.05rem; }
 
 /* --------------------------------------------------------------------------
    Totales y filtros
@@ -389,38 +606,60 @@ textarea { resize: vertical; min-height: 70px; }
 
 .totales {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.75rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .total {
     background: var(--papel);
-    border: 1px solid var(--linea);
     border-radius: var(--radio);
-    padding: 0.9rem 1rem;
+    box-shadow: var(--sombra-1);
+    padding: 1rem 1.1rem 1.05rem;
 }
 
-.total-etiqueta { font-size: 0.75rem; color: var(--gris); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
-.total-valor { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; margin-top: 0.2rem; }
-.total.rojo .total-valor { color: var(--mal); }
-.total.verde .total-valor { color: var(--ok); }
+.total-etiqueta { font-size: 0.72rem; color: var(--gris); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.total-valor { font-size: 1.45rem; font-weight: 600; letter-spacing: -0.03em; margin-top: 0.35rem; line-height: 1.15; }
+.total-valor + .total-valor { font-size: 1rem; margin-top: 0.15rem; color: var(--gris); letter-spacing: -0.015em; }
+/* `.total-etiqueta + .total-valor` y no `:first-of-type`: la etiqueta también
+   es un div, así que el primer div de la tarjeta es ella y el selector por tipo
+   nunca alcanzaba al monto. */
+.total.rojo .total-etiqueta + .total-valor { color: var(--mal); }
+.total.verde .total-etiqueta + .total-valor { color: var(--ok); }
 
-.filtros { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap; }
+/* "Por cobrar" es la cifra por la que se abre esta pantalla, así que es la
+   única tarjeta oscura: el ojo va primero ahí. */
+.total.destacado { background: var(--negro); box-shadow: none; }
+.total.destacado .total-etiqueta { color: var(--beige); opacity: 0.8; }
+.total.destacado .total-valor { color: var(--blanco); }
+.total.destacado .total-valor + .total-valor { color: var(--beige); }
+
+/* Filtros como control segmentado: los cuatro dentro de una misma pastilla,
+   con el elegido en relieve. Se entiende de un vistazo que son excluyentes,
+   cosa que cuatro botones sueltos no transmiten. */
+.filtros {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    margin-bottom: 1.25rem;
+    background: #ECE8E3;
+    border-radius: 11px;
+}
 
 .chip {
-    font-family: var(--fuente);
-    font-size: 0.85rem;
-    padding: 0.35rem 0.8rem;
-    border: 1px solid var(--linea);
-    border-radius: 100px;
-    background: var(--papel);
+    font-size: 0.84rem;
+    font-weight: 500;
+    padding: 0.45rem 0.95rem;
+    border: none;
+    border-radius: 8px;
+    background: none;
     cursor: pointer;
     color: var(--gris);
+    transition: background var(--transicion), color var(--transicion), box-shadow var(--transicion);
 }
 
-.chip:hover { border-color: var(--negro); color: var(--negro); }
-.chip-activo { background: var(--negro); color: var(--blanco); border-color: var(--negro); }
+.chip:hover { color: var(--tinta); }
+.chip-activo { background: var(--papel); color: var(--tinta); font-weight: 600; box-shadow: 0 1px 3px rgba(27, 26, 25, 0.1), 0 0 0 0.5px rgba(27, 26, 25, 0.05); }
 
 /* --------------------------------------------------------------------------
    Fichas de lista (pagos, pedidos, obras)
@@ -428,51 +667,93 @@ textarea { resize: vertical; min-height: 70px; }
 
 .ficha {
     background: var(--papel);
-    border: 1px solid var(--linea);
     border-radius: var(--radio);
-    padding: 0.9rem 1rem;
+    box-shadow: var(--sombra-1);
     margin-bottom: 0.6rem;
+    transition: box-shadow var(--transicion);
+}
+.ficha:hover { box-shadow: 0 0 0 1px var(--linea-fuerte), 0 4px 14px -6px rgba(27, 26, 25, 0.12); }
+
+/* La zona tocable de la ficha es un botón de verdad (se llega con el
+   teclado y el lector de pantalla lo anuncia), no un div con click. */
+.ficha-principal {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.ficha-cuerpo { flex: 1; min-width: 180px; }
-.ficha-titulo { font-weight: 600; }
-.ficha-sub { font-size: 0.82rem; color: var(--gris); }
-.ficha-monto { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
-.ficha-acciones { display: flex; gap: 0.4rem; }
-
-.barra-herramientas { margin-bottom: 1rem; }
-.buscador { max-width: 420px; }
-
-.obra-cabecera-izq, .obra-cabecera-der { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-.obra-cabecera-der .btn-primario { margin-top: 0; }
-.obra-bloque { margin-top: 1.75rem; }
-.obra-bloque-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
-.obra-bloque-cabecera h3 { font-size: 1.05rem; font-weight: 600; }
-.obra-bloque-cabecera .btn-primario { margin-top: 0; padding: 0.4rem 0.85rem; font-size: 0.85rem; }
-.obra-resumen { margin-bottom: 1.25rem; }
-
-.ficha-link {
+    gap: 0.85rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.95rem 1rem;
     background: none;
     border: none;
-    padding: 0;
-    font: inherit;
-    font-weight: 600;
-    color: var(--negro);
-    cursor: pointer;
     text-align: left;
+    cursor: pointer;
 }
-.ficha-link:hover { text-decoration: underline; }
+
+.ficha-fila { display: flex; align-items: center; padding-right: 0.5rem; }
+.ficha-fila .ficha-principal { padding-right: 0.25rem; }
+
+.ficha-cuerpo { flex: 1; min-width: 0; }
+/* Dentro de un <button> sólo puede ir contenido en línea, así que título y
+   subtítulo son <span> y se apilan desde acá. */
+.ficha-cuerpo > span { display: block; }
+.ficha-cuerpo > span.avance { display: flex; }
+.ficha-cuerpo > span.ficha-sub { display: -webkit-box; }
+.ficha-titulo { font-weight: 600; font-size: 0.95rem; letter-spacing: -0.01em; line-height: 1.3; }
+/* Dos renglones como máximo: las notas largas de una obra estiraban la ficha
+   a cinco renglones y la lista dejaba de leerse como lista. El texto
+   completo está al abrirla. */
+.ficha-sub {
+    font-size: 0.8rem;
+    color: var(--gris);
+    margin-top: 0.15rem;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.obra-resumen .ficha-sub { -webkit-line-clamp: unset; display: block; }
+
+.ficha-der { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; flex: none; }
+.ficha-monto { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap; }
+.ficha-monto.chico { font-size: 0.85rem; color: var(--gris); font-weight: 500; }
+
+/* Insignia redonda con ícono a la izquierda de cada ficha, como en las apps
+   de banco: dice qué es (entra plata, sale plata, un pedido, una obra) antes
+   de leer una sola palabra. */
+.insignia {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    flex: none;
+    background: var(--fondo);
+    color: var(--gris);
+}
+.insignia .ico { width: 18px; height: 18px; }
+.insignia.entra { background: var(--ok-suave); color: var(--ok); }
+.insignia.sale { background: var(--beige-suave); color: #8A6E57; }
+.insignia.obra { background: var(--negro); color: var(--beige); }
+
+.ficha-pie {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0 1rem 0.85rem;
+    margin-top: -0.25rem;
+}
 
 .etiqueta {
-    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 0.2rem 0.5rem;
+    letter-spacing: 0.05em;
+    padding: 0.22rem 0.55rem;
     border-radius: 100px;
     white-space: nowrap;
 }
@@ -482,43 +763,131 @@ textarea { resize: vertical; min-height: 70px; }
 .etiqueta.mal { background: var(--mal-suave); color: var(--mal); }
 .etiqueta.neutro { background: var(--fondo); color: var(--gris); }
 
+.chevron { color: var(--gris-claro); transition: transform var(--transicion); }
+.abierto .chevron { transform: rotate(180deg); }
+
+/* Barra de avance de un pedido: cuánto llegó de lo pedido, en una línea que se
+   lee sin hacer la cuenta "3 de 5". */
+.avance {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.74rem;
+    color: var(--gris);
+}
+.avance-barra { flex: 1; max-width: 160px; height: 4px; border-radius: 2px; background: var(--fondo); overflow: hidden; }
+.avance-barra i { display: block; height: 100%; background: var(--ok); border-radius: 2px; }
+
+.buscador {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 440px;
+    margin: 0 0 1.25rem;
+    padding: 0 0.9rem;
+    background: var(--papel);
+    border-radius: 12px;
+    box-shadow: var(--sombra-1);
+    color: var(--gris);
+    cursor: text;
+}
+.buscador input { border: none; background: none; box-shadow: none; padding-left: 0; min-height: 46px; }
+.buscador input:focus { box-shadow: none; background: none; }
+.buscador:focus-within { box-shadow: 0 0 0 1px var(--beige-osc), 0 0 0 4px rgba(180, 158, 138, 0.18); }
+
+.obra-cabecera-izq, .obra-cabecera-der { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; min-width: 0; }
+.obra-bloque { margin-top: 2rem; }
+.obra-bloque-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
+.obra-bloque-cabecera h3 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.015em; }
+.obra-bloque-cabecera h3 span { color: var(--gris-claro); font-weight: 500; margin-left: 0.25rem; }
+.obra-bloque .evento { margin-bottom: 0.45rem; }
+.obra-bloque .evento-hora { display: block; }
+
+.obra-resumen {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.25rem;
+}
+.obra-resumen .ficha-sub { font-size: 0.86rem; margin-top: 0.1rem; }
+.obra-resumen .ficha-titulo { font-size: 0.98rem; }
+
 /* Pedidos: la ficha se abre para mostrar los materiales. */
-.pedido { display: block; }
-.pedido-cabecera { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.pedido-items { margin-top: 0.75rem; border-top: 1px solid var(--linea); padding-top: 0.6rem; }
+.pedido-items { margin: 0 1rem; border-top: 1px solid var(--linea); padding: 0.5rem 0 0.9rem; }
 
 .item {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.3rem 0;
+    gap: 0.7rem;
+    padding: 0.45rem 0;
     font-size: 0.88rem;
+    margin: 0;
+    color: var(--tinta);
+    font-weight: 400;
+    cursor: pointer;
 }
+.item + .item { border-top: 1px solid #F3F0EC; }
 
-.item input[type="checkbox"] { width: 1.15rem; height: 1.15rem; margin: 0; cursor: pointer; flex: none; }
-.item.listo .item-nombre { text-decoration: line-through; color: var(--gris); }
+.item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    flex: none;
+    border-radius: 6px;
+    border: 1.5px solid var(--gris-claro);
+    background: var(--papel);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+.item input[type="checkbox"]:checked {
+    background: var(--ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 13px no-repeat;
+    border-color: var(--ok);
+}
+.item input[type="checkbox"]:focus { box-shadow: 0 0 0 3px rgba(46, 107, 74, 0.2); }
+
+.item.listo .item-nombre { text-decoration: line-through; text-decoration-color: var(--gris-claro); color: var(--gris); }
 .item-nombre { flex: 1; min-width: 0; }
-.item-detalle {
-    color: var(--gris);
-    font-size: 0.82rem;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
+.item-detalle { color: var(--gris); font-size: 0.8rem; white-space: nowrap; }
+.item .btn-editar { width: 30px; height: 30px; }
+
+.item-alta {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    padding: 0.6rem;
+    background: var(--fondo);
+    border-radius: 12px;
+    flex-wrap: wrap;
 }
+.item-alta input, .item-alta select { width: auto; flex: 1; min-width: 110px; font-size: 0.85rem; min-height: 38px; padding: 0.4rem 0.6rem; background-color: var(--papel); }
+.item-alta input.chico, .item-alta select.chico { flex: 0 0 84px; min-width: 70px; }
+.item-alta .btn { min-height: 38px; }
 
-.item-alta { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
-.item-alta input, .item-alta select { width: auto; flex: 1; min-width: 110px; font-size: 0.85rem; padding: 0.4rem 0.5rem; }
-.item-alta input.chico, .item-alta select.chico { flex: 0 0 80px; min-width: 70px; }
-.item-alta .btn { margin-top: 0; padding: 0.4rem 0.8rem; }
-
+/* Estado vacío con ícono: una caja punteada con texto gris se lee como
+   "algo falló"; el ícono y el tono calmo dicen "todavía no hay nada". */
 .vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
     text-align: center;
     color: var(--gris);
-    padding: 2.5rem 1rem;
+    padding: 2rem 1.25rem;
     background: var(--papel);
-    border: 1px dashed var(--linea);
     border-radius: var(--radio);
-    font-size: 0.9rem;
+    box-shadow: var(--sombra-1);
+    font-size: 0.88rem;
+    line-height: 1.45;
 }
+.vacio .ico { width: 26px; height: 26px; stroke-width: 1.5; color: var(--gris-claro); }
+.panel-lateral .vacio { box-shadow: none; background: var(--fondo); padding: 1.25rem 1rem; }
 
 /* --------------------------------------------------------------------------
    Modal
@@ -527,56 +896,121 @@ textarea { resize: vertical; min-height: 70px; }
 .modal-fondo {
     position: fixed;
     inset: 0;
-    background: rgba(17, 17, 17, 0.5);
+    background: rgba(18, 18, 18, 0.42);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding: 2rem 1rem;
+    padding: 6vh 1rem 2rem;
     z-index: 100;
     overflow-y: auto;
+    animation: fundido 160ms ease-out;
 }
+
+@keyframes fundido { from { opacity: 0; } to { opacity: 1; } }
 
 .modal {
     background: var(--papel);
-    border-radius: var(--radio);
+    border-radius: 20px;
     width: 100%;
-    max-width: 440px;
-    padding: 1.5rem;
-    box-shadow: var(--sombra);
+    max-width: 480px;
+    padding: 1.5rem 1.5rem 1.25rem;
+    box-shadow: var(--sombra-2);
+    animation: subir 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-.modal-cabecera { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-.modal-cabecera h2 { font-size: 1.1rem; font-weight: 600; }
+@keyframes subir { from { opacity: 0; transform: translateY(12px) scale(0.985); } to { opacity: 1; transform: none; } }
+
+.modal-asa { display: none; }
+
+.modal-cabecera { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
+.modal-cabecera h2 { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em; }
+.modal-cabecera .btn-redondo { box-shadow: none; background: var(--fondo); width: 34px; height: 34px; }
 
 .modal-pie { display: flex; gap: 0.5rem; margin-top: 1.5rem; align-items: center; }
 .espaciador { flex: 1; }
 
 /* Dos campos cortos (fecha y hora, cantidad y unidad) comparten renglón. */
 .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.fila label { margin-top: 0.75rem; }
 
 /* --------------------------------------------------------------------------
-   Aviso flotante
+   Aviso flotante y botón de alta
    -------------------------------------------------------------------------- */
 
 .aviso {
     position: fixed;
-    bottom: 1.25rem;
+    bottom: 1.5rem;
     left: 50%;
     transform: translateX(-50%);
     background: var(--negro);
     color: var(--blanco);
-    padding: 0.6rem 1.1rem;
+    padding: 0.7rem 1.2rem;
     border-radius: 100px;
-    font-size: 0.88rem;
+    font-size: 0.86rem;
+    font-weight: 500;
     z-index: 200;
-    box-shadow: var(--sombra);
+    box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.4);
+    animation: aviso-entra 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    max-width: calc(100vw - 2rem);
+    text-align: center;
 }
+
+@keyframes aviso-entra { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 .aviso.mal { background: var(--mal); }
 
+.fab { display: none; }
+
 /* --------------------------------------------------------------------------
-   Pantallas chicas
+   Escritorio: ancho según la pantalla y fichas de la grilla
+   -------------------------------------------------------------------------- */
+
+/* La agenda aprovecha todo el ancho porque son siete columnas; las listas
+   (pagos, materiales, obras) se angostan, porque una ficha de 1400px obliga a
+   cruzar la pantalla con la vista para ir del concepto al monto. */
+.vista:not(#vista-agenda) { max-width: 960px; margin: 0 auto; }
+
+/* Texto que no deja una palabra sola en el último renglón. */
+.ficha-titulo, .evento-titulo, .resumen-dia, .vacio span { text-wrap: pretty; }
+
+.pedido-notas { font-size: 0.82rem; color: var(--gris); padding: 0.35rem 0 0.5rem; font-style: italic; }
+.btn-editar-pedido { margin-top: 0.75rem; width: 100%; min-height: 40px; display: none; }
+
+.ficha-pie { justify-content: space-between; }
+.ficha-pie .etiqueta { margin-left: 3.35rem; }
+
+/* En pantalla ancha, estado y acción van en la misma línea que el monto, en
+   una columna de ancho fijo: abajo dejaban un renglón casi vacío por ficha, y
+   con ancho fijo los montos de todas las fichas caen en la misma vertical. */
+@media (min-width: 761px) {
+    .solo-movil { display: none !important; }
+    .ficha:has(> .ficha-pie) { display: flex; align-items: center; }
+    .ficha:has(> .ficha-pie) > .ficha-principal { flex: 1; min-width: 0; }
+    .ficha > .ficha-pie { flex: 0 0 280px; margin: 0; padding: 0 1rem 0 0.25rem; justify-content: space-between; }
+    .ficha > .ficha-pie .etiqueta { margin-left: 0; }
+}
+
+@media (min-width: 1101px) {
+    .contenido { max-width: 1480px; }
+    .agenda-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+
+    /* En una columna de ~150px, el círculo de "hecho" al costado le robaba
+       un cuarto del ancho al título y lo partía a mitad de palabra
+       ("materiale-s"). Acá el círculo se apoya en el renglón de la hora, que
+       siempre es corto, y el título usa el ancho completo de abajo. */
+    .semana .evento { position: relative; }
+    .semana .evento-cuerpo { padding: 0.45rem 0.55rem 0.55rem 0.65rem; }
+    .semana .evento-hora { display: block; padding-right: 1.4rem; margin-bottom: 0.1rem; }
+    .semana .evento-hora.sin-hora { display: block; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.62rem; color: var(--gris-claro); line-height: 1.6; }
+    .semana .evento-tilde { position: absolute; top: 0.3rem; right: 0.3rem; width: 22px; height: 22px; }
+    .semana .circulo { width: 17px; height: 17px; }
+    .semana .circulo .ico { width: 10px; height: 10px; }
+    .semana .evento-titulo { display: block; overflow-wrap: break-word; hyphens: auto; }
+}
+
+/* --------------------------------------------------------------------------
+   Pantallas medianas: la semana pasa a lista
    -------------------------------------------------------------------------- */
 
 /* Siete columnas necesitan ancho real. Por debajo de ~1100px cada día queda
@@ -586,136 +1020,254 @@ textarea { resize: vertical; min-height: 70px; }
 @media (max-width: 1100px) {
     /* De grilla a columna, y los pendientes pasan ARRIBA de la semana. En el
        escritorio están al costado y se ven de entrada; apilados quedaban
-       detrás de los siete días, o sea a una pantalla y media de scroll. Son
-       pocos y son lo que hay que resolver, así que van primero. */
-    .agenda-layout { display: flex; flex-direction: column; }
+       detrás de los siete días, o sea a una pantalla y media de scroll.
+       `align-items: stretch` es lo que les devuelve el ancho completo: la
+       grilla de escritorio usa `start`, y en columna eso los dejaba angostos. */
+    .agenda-layout { display: flex; flex-direction: column; align-items: stretch; }
     .panel-lateral { order: -1; }
 
-    .semana { grid-template-columns: 1fr; }
-    .dia { min-height: auto; }
-    .dia-hueco { min-height: 0.5rem; }
-    .dia-cabecera { gap: 0.5rem; justify-content: flex-start; }
+    .semana { grid-template-columns: 1fr; background: none; box-shadow: none; gap: 0.6rem; overflow: visible; }
+    .dia {
+        min-height: auto;
+        border-left: none;
+        background: var(--papel);
+        border-radius: var(--radio);
+        box-shadow: var(--sombra-1);
+        padding: 0.75rem 0.75rem 0.6rem;
+    }
+    .dia.finde { background: var(--papel); }
+    .dia-cabecera { gap: 0.5rem; justify-content: flex-start; padding: 0 0.1rem 0.4rem; }
+    .dia.hoy { box-shadow: 0 0 0 1.5px var(--negro), 0 4px 14px -6px rgba(27, 26, 25, 0.2); }
+    .etiqueta.etiqueta-hoy { display: inline-flex; margin-left: auto; }
+    .dia-hueco { min-height: 0.25rem; }
+    .dia-hueco::after { content: none; }
 
-    /* En lista vertical un día sin eventos no necesita una tarjeta entera:
-       queda como un renglón fino donde toda la fila sigue siendo clickeable
-       para agregar algo en esa fecha. */
-    .dia.dia-vacio {
-        flex-direction: row;
-        align-items: center;
-        padding: 0.45rem 0.65rem;
-        gap: 0.5rem;
-    }
-    .dia.dia-vacio .dia-hueco {
-        min-height: 1.5rem;
-        text-align: right;
-        color: var(--gris);
-        font-size: 0.78rem;
-    }
-    .dia.dia-vacio .dia-hueco::after { content: "+"; }
+    /* Un día sin eventos no necesita una tarjeta entera: queda como un
+       renglón fino, todo clickeable para agregar algo en esa fecha. */
+    .dia.dia-vacio { flex-direction: row; align-items: center; padding: 0.5rem 0.75rem; background: transparent; box-shadow: 0 0 0 1px var(--linea); }
+    .dia.dia-vacio.hoy { box-shadow: 0 0 0 1.5px var(--negro); }
+    .dia.dia-vacio .dia-cabecera { padding: 0; }
+    .dia.dia-vacio .dia-numero { width: 26px; height: 26px; font-size: 0.88rem; }
+    .dia.dia-vacio .dia-hueco { min-height: 1.75rem; text-align: right; color: var(--gris-claro); font-size: 0.78rem; font-weight: 500; padding-right: 0.25rem; }
+    .dia.dia-vacio .dia-hueco::after { content: "Libre  +"; white-space: pre; }
+    .dia.dia-vacio .etiqueta.etiqueta-hoy { display: none; }
+
+    .totales { grid-template-columns: 1fr 1fr; }
 }
 
+/* --------------------------------------------------------------------------
+   Teléfono
+   -------------------------------------------------------------------------- */
+
 @media (max-width: 760px) {
-    .contenido { padding: 1rem 0.9rem 2.5rem; }
-    .barra { padding: 0.6rem 0.9rem; gap: 0.55rem 0.75rem; }
+    body { font-size: 15px; }
 
-    .semana-nav { flex: 1 1 auto; }
-    .semana-nav h2 { min-width: auto; font-size: 0.95rem; flex: 1; text-align: center; }
-    .vista-cabecera { gap: 0.6rem; margin-bottom: 1rem; }
+    .solo-escritorio { display: none !important; }
 
-    /* Cuatro secciones más el botón de salir no entran en un renglón de 375px,
-       y al partirse quedaba "Obras" colgando sola debajo. En vez de pelear con
-       el envoltorio, la barra pasa a dos renglones a propósito: arriba el logo
-       y Salir, abajo la navegación como barra segmentada de punta a punta.
-       `display: contents` disuelve los dos agrupadores para poder ordenar sus
-       hijos como si fueran hijos directos de la barra. */
+    /* Barra de arriba fina: el monograma, la fecha y salir. Todo lo demás se
+       va abajo, donde llega el pulgar. */
+    .barra {
+        height: calc(var(--alto-barra) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1rem 0;
+    }
+    .barra-izq { gap: 0.7rem; }
+    .fecha-hoy { display: block; font-size: 0.86rem; font-weight: 500; color: #CFC8C0; text-transform: capitalize; }
     .usuario { display: none; }
-    .barra-izq, .barra-der { display: contents; }
-    .marca-chica { order: 1; }
-    .barra .btn-fantasma { order: 2; margin-left: auto; padding: 0.35rem 0.75rem; min-height: 34px; font-size: 0.82rem; }
+
+    /* Barra de pestañas fija abajo, como en cualquier app del teléfono. Con
+       los íconos arriba de la palabra, las cuatro entran holgadas en 375px. */
     .nav {
-        order: 3;
-        width: 100%;
-        background: #1E1E1E;
-        padding: 0.25rem;
-        border-radius: calc(var(--radio) + 2px);
-        gap: 0.2rem;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 40;
+        gap: 0;
+        padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+        background: rgba(18, 18, 18, 0.94);
+        backdrop-filter: saturate(140%) blur(14px);
+        -webkit-backdrop-filter: saturate(140%) blur(14px);
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
     .nav-item {
         flex: 1;
-        text-align: center;
-        padding: 0.5rem 0.25rem;
-        font-size: 0.85rem;
+        flex-direction: column;
+        gap: 0.2rem;
+        font-size: 0.68rem;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+        padding: 0.4rem 0 0.3rem;
+        border-radius: 12px;
+        color: #8C867F;
     }
+    .nav-item .ico { width: 23px; height: 23px; }
+    .nav-item:hover { background: none; color: #8C867F; }
+    .nav-item.activo { background: none; color: var(--beige); }
+    .nav-item.activo .ico { stroke-width: 2.1; }
+
+    /* El contenido deja libre lo que tapan la barra de abajo y el botón
+       flotante, así la última ficha no queda escondida detrás. */
+    .contenido { padding: 1.25rem 1rem calc(9rem + env(safe-area-inset-bottom)); }
+
+    .fab {
+        display: grid;
+        place-items: center;
+        position: fixed;
+        right: 1rem;
+        bottom: calc(5rem + env(safe-area-inset-bottom));
+        z-index: 35;
+        width: 56px;
+        height: 56px;
+        border: none;
+        border-radius: 18px;
+        background: var(--negro);
+        color: var(--beige);
+        box-shadow: 0 10px 24px -6px rgba(18, 18, 18, 0.5), 0 2px 6px rgba(18, 18, 18, 0.2);
+        cursor: pointer;
+        transition: transform var(--transicion);
+    }
+    .fab:active { transform: scale(0.94); }
+    .fab .ico { width: 26px; height: 26px; stroke-width: 2.2; }
+
+    .saludo { margin-bottom: 1.1rem; }
+    .saludo h1, .vista-titulo { font-size: 1.55rem; }
+    .resumen-dia { font-size: 0.86rem; }
+
+    .vista-cabecera { gap: 0.6rem; margin-bottom: 1rem; }
+    .semana-nav { flex: 1 1 auto; }
+    .semana-nav h2 { min-width: 0; font-size: 0.98rem; flex: 1; }
+
+    /* Tira de días pegada debajo de la barra: mientras se scrollea la semana
+       sigue a mano para saltar de un día a otro. */
+    .tira-dias {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.25rem;
+        position: sticky;
+        top: calc(var(--alto-barra) + env(safe-area-inset-top));
+        z-index: 20;
+        margin: 0 -1rem 1rem;
+        padding: 0.5rem 1rem 0.6rem;
+        background: rgba(246, 244, 241, 0.92);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+    .tira-dia {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        padding: 0.4rem 0 0.35rem;
+        border: none;
+        border-radius: 12px;
+        background: none;
+        cursor: pointer;
+        color: var(--tinta);
+    }
+    .tira-dia span { font-size: 0.66rem; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.04em; }
+    .tira-dia b { font-size: 1rem; font-weight: 600; }
+    .tira-dia i { width: 4px; height: 4px; border-radius: 50%; background: transparent; }
+    .tira-dia.con-eventos i { background: var(--beige-osc); }
+    .tira-dia.hoy { background: var(--negro); }
+    .tira-dia.hoy span { color: var(--beige); opacity: 0.75; }
+    .tira-dia.hoy b { color: var(--blanco); }
+    .tira-dia.hoy.con-eventos i { background: var(--beige); }
+
+    .dia { scroll-margin-top: calc(var(--alto-barra) + env(safe-area-inset-top) + 84px); }
 
     /* iOS hace zoom al enfocar un campo cuyo texto mida menos de 16px, y
        después deja la página corrida y agrandada. Subir los campos a 16px lo
        evita; es la única razón por la que este tamaño está acá. */
     input, select, textarea { font-size: 16px; }
 
-    /* Con el dedo hace falta más superficie que con el mouse. 40px es el
-       mínimo cómodo para no errarle a un botón yendo en el auto o en la obra. */
-    .btn { min-height: 42px; }
-    .btn-icono { min-width: 42px; }
-    .evento-tilde { width: 2.65rem; font-size: 1.05rem; }
+    .btn { min-height: 44px; }
+    .evento-tilde { width: 2.75rem; }
+    .circulo { width: 22px; height: 22px; }
+    .evento-cuerpo { font-size: 0.84rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
 
-    /* Cuatro tarjetas apiladas se comían la pantalla entera antes de mostrar
-       un solo pago. En dos columnas entran todas de un vistazo. */
-    .totales { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-    .total { padding: 0.7rem 0.75rem; }
-    .total-etiqueta { font-size: 0.68rem; }
-    .total-valor { font-size: 1.1rem; }
+    .totales { gap: 0.5rem; margin-bottom: 1.1rem; }
+    .total { padding: 0.8rem 0.85rem; }
+    .total-etiqueta { font-size: 0.64rem; }
+    .total-valor { font-size: 1.15rem; }
+    .total-valor + .total-valor { font-size: 0.85rem; }
 
-    /* Los cuatro filtros entran en un renglón si se achica el relleno. */
-    .filtros { gap: 0.35rem; }
-    .chip { flex: 1; text-align: center; padding: 0.45rem 0.4rem; font-size: 0.8rem; }
+    .filtros { display: flex; width: 100%; }
+    .chip { flex: 1; padding: 0.5rem 0.2rem; font-size: 0.8rem; text-align: center; }
 
-    /* En el teléfono las fichas se ordenan en tres pisos claros:
-       1. Título y subtítulo a todo el ancho, sin apretarse contra las etiquetas.
-       2. Etiquetas de estado a la izquierda y monto a la derecha.
-       3. Botones de acción abajo ocupando el ancho para tocarlos cómodo con el pulgar. */
-    .ficha { padding: 0.85rem 0.9rem; gap: 0.55rem; }
-    .pedido-cabecera { gap: 0.55rem; }
-    .ficha-cuerpo { flex: 1 0 100%; min-width: 0; }
-    .ficha-monto { margin-left: auto; font-size: 1.08rem; }
-    .ficha-acciones {
-        flex: 1 0 100%;
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 0.15rem;
-    }
-    .ficha-acciones .btn { flex: 1; text-align: center; }
+    .ficha-principal { padding: 0.85rem 0.85rem; gap: 0.75rem; }
+    .insignia { width: 36px; height: 36px; border-radius: 10px; }
+    .ficha-pie { padding: 0 0.85rem 0.8rem; }
+    .ficha-pie .etiqueta { margin-left: 3rem; }
+    .ficha-monto { font-size: 0.95rem; }
+
+    /* En un pedido, la flecha y el lápiz de la cabecera le quitaban al
+       proveedor casi 80px y lo partían en tres renglones. Se ocultan: la
+       ficha entera ya abre la lista, y el botón de editar aparece adentro. */
+    .pedido .chevron, .pedido .ficha-fila > .btn-editar { display: none; }
+    .pedido .ficha-fila { padding-right: 0; }
+    .pedido .ficha-fila .ficha-principal { padding-right: 0.85rem; }
+
+    /* Mismo criterio en la lista de obras: tocar la obra la abre, y adentro
+       está el botón de editar. */
+    #lista-obras .chevron, #lista-obras .btn-editar { display: none; }
+    #lista-obras .ficha-fila { padding-right: 0; }
+    #lista-obras .ficha-principal { padding-right: 0.85rem; }
+    .btn-editar-pedido { display: inline-flex; }
 
     /* El material ocupa el ancho y la cantidad con el precio bajan al renglón
        siguiente, alineados con el texto. Antes compartían fila y el nombre
        terminaba partido en tiras de tres letras. */
-    .item { flex-wrap: wrap; row-gap: 0.1rem; padding: 0.45rem 0; }
+    .pedido-items { margin: 0 0.85rem; }
+    .item { flex-wrap: wrap; row-gap: 0.1rem; padding: 0.55rem 0; }
     .item-nombre { flex: 1 1 auto; order: 1; }
-    .item [data-borrar-item] { order: 2; }
-    .item-detalle { order: 3; flex: 1 0 100%; padding-left: 1.75rem; }
+    .item .btn-editar { order: 2; }
+    .item-detalle { order: 3; flex: 1 0 100%; padding-left: 1.95rem; }
 
-    /* Formulario de agregar material dentro de un pedido: nombre arriba a todo
-       el ancho, números y moneda en la fila del medio, botón Agregar abajo. */
-    .item-alta { gap: 0.45rem; margin-top: 0.75rem; }
-    .item-alta input, .item-alta select { font-size: 16px; }
+    /* Agregar material: nombre arriba a todo el ancho, números y moneda en la
+       fila del medio, botón abajo. */
+    .item-alta input, .item-alta select { font-size: 16px; min-height: 42px; }
     .item-alta input[name="material"] { flex: 1 0 100%; }
     .item-alta input.chico, .item-alta select.chico { flex: 1 1 60px; min-width: 0; }
-    .item-alta .btn { flex: 1 0 100%; }
+    .item-alta .btn { flex: 1 0 100%; min-height: 42px; }
 
     .buscador { max-width: none; }
 
-    /* El modal en el teléfono se abre como hoja desde abajo (bottom sheet),
-       más cómodo de alcanzar con una mano. */
+    .obra-bloque-cabecera .btn { min-height: 36px; padding: 0 0.8rem; font-size: 0.82rem; }
+
+    /* El modal en el teléfono se abre como hoja desde abajo: se alcanza con
+       una mano y se cierra tocando afuera. El pie queda pegado al borde para
+       que Guardar esté siempre a la vista aunque el formulario sea largo. */
     .modal-fondo { align-items: flex-end; padding: 0; }
     .modal {
         max-width: none;
-        border-radius: 16px 16px 0 0;
-        padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
-        max-height: 92vh;
+        border-radius: 22px 22px 0 0;
+        padding: 0.5rem 1.1rem 0;
+        max-height: 92dvh;
         overflow-y: auto;
+        animation: hoja 260ms cubic-bezier(0.2, 0.8, 0.3, 1);
     }
-    .fila { gap: 0.55rem; }
+    @keyframes hoja { from { transform: translateY(100%); } to { transform: none; } }
+    .modal-asa { display: block; width: 38px; height: 5px; border-radius: 3px; background: var(--linea-fuerte); margin: 0.2rem auto 0.9rem; }
+    .modal-pie {
+        position: sticky;
+        bottom: 0;
+        margin: 1.25rem -1.1rem 0;
+        padding: 0.75rem 1.1rem calc(0.75rem + env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid var(--linea);
+    }
+    .modal-pie .btn-primario { flex: 1; }
+    .fila { gap: 0.6rem; }
 
-    /* Arriba y no abajo: en el teléfono el aviso aparecía justo sobre lo que
-       se acababa de cargar, tapándolo. */
-    .aviso { top: 6.2rem; bottom: auto; }
+    /* Arriba y no abajo: en el teléfono abajo está la barra de pestañas, y el
+       aviso quedaba encima del botón flotante. */
+    .aviso { top: calc(var(--alto-barra) + env(safe-area-inset-top) + 0.6rem); bottom: auto; }
+    @keyframes aviso-entra { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+}
+
+/* Quien tenga pedido en el sistema que se reduzca el movimiento no ve las
+   animaciones de entrada; el panel funciona igual sin ellas. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
 }

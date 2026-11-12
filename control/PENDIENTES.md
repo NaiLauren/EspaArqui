@@ -122,6 +122,31 @@ http://localhost:8777/control/
 Para reproducir el comportamiento de Vercel, un servidor que devuelva el
 `index.html` en `/control` sin redirigir.
 
+### Otra trampa: capturas de teléfono
+
+Chrome sin ventana (`--headless --window-size=390,...`) no baja de unos 500px
+de ancho: la página se dibuja a 500 y la captura sale recortada a 390, como si
+todo se desbordara a la derecha. No es un bug del panel. Para ver el ancho real
+de un teléfono hay que emular el dispositivo por el protocolo de depuración
+(`Emulation.setDeviceMetricsOverride`) o meter la página en un `<iframe>` de
+390px.
+
+### Qué hace cada toque en una ficha
+
+Las fichas son tocables enteras y tienen botones adentro. El orden en que el
+manejador de clics de `control.js` revisa los selectores es lo que decide qué
+pasa; si se toca, volver a probar estos casos:
+
+| Toque | Debe |
+|---|---|
+| "Marcar cobrado" en un pago | Registrar el pago, sin abrir el formulario |
+| Resto de la ficha de pago | Abrir el formulario |
+| Lápiz de un pedido (escritorio) | Abrir "Editar pedido", sin desplegar |
+| Cabecera de un pedido | Desplegar los materiales |
+| Círculo de una entrada de agenda | Marcarla hecha, sin abrir el formulario |
+| Ficha de obra / su lápiz | Abrir la obra / abrir "Editar obra" |
+| Botón flotante (teléfono) | Crear lo que corresponde a la pestaña actual |
+
 ## Qué falta
 
 ### 1. Uso sin señal (decisión a futuro)

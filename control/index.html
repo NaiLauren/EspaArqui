@@ -2,7 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover hace que env(safe-area-inset-*) devuelva el alto de
+         la barra de gestos del iPhone. Sin eso vale cero, y la barra de
+         navegación de abajo quedaría pisada por el gesto de "volver al inicio". -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Panel · Espacio Arquitectura</title>
 
     <!-- Panel interno: no queremos que aparezca en Google al lado de la web
@@ -10,16 +13,16 @@
          la base), es higiene: evita que la pantalla de login se indexe. -->
     <meta name="robots" content="noindex, nofollow">
 
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%23111'/><text x='50' y='68' font-size='55' font-family='Inter,sans-serif' font-weight='800' fill='%23DFD1C4' text-anchor='middle'>EA</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23121212'/><text x='50' y='66' font-size='46' font-family='Inter,sans-serif' font-weight='800' fill='%23DFD1C4' text-anchor='middle'>EA</text></svg>">
 
     <!-- Con esto el panel se agrega a la pantalla de inicio del teléfono y se
          abre sin barra de direcciones, como una aplicación. No lo vuelve una
          app nativa ni lo hace andar sin señal: sigue siendo la misma página,
          pero deja de parecer "una web abierta en el navegador", que es como lo
          va a usar el estudio todos los días.
-         Android toma el manifest; iOS necesita ademas las etiquetas apple-. -->
+         Android toma el manifest; iOS necesita además las etiquetas apple-. -->
     <link rel="manifest" href="/control/manifest.webmanifest">
-    <meta name="theme-color" content="#111111">
+    <meta name="theme-color" content="#121212">
     <link rel="apple-touch-icon" href="/control/iconos/icono-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -27,7 +30,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Las rutas van absolutas a propósito. Vercel sirve esta página tanto en
          /control como en /control/, y sin la barra final el navegador resuelve
@@ -39,12 +42,40 @@
 </head>
 <body>
 
+<!-- Íconos. Un solo juego de símbolos que el resto de la página reusa con
+     <use href="#i-...">: un ícono nuevo se agrega acá y no hay que cargar
+     ninguna librería. Van con trazo y no con relleno para que tomen el color
+     del texto que los rodea y se vean igual de finos en cualquier tamaño. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-agenda" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></symbol>
+    <symbol id="i-pagos" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12.5" rx="2.5"/><circle cx="12" cy="12.25" r="2.6"/><path d="M6 12.25h.01M18 12.25h.01"/></symbol>
+    <symbol id="i-materiales" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+    <symbol id="i-obras" viewBox="0 0 24 24"><rect x="4" y="2.5" width="16" height="19" rx="2"/><path d="M9.5 21.5v-4h5v4M8.5 7h.01M12 7h.01M15.5 7h.01M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01M8.5 14h.01M12 14h.01M15.5 14h.01"/></symbol>
+    <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-izq" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-der" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-abajo" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-volver" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+    <symbol id="i-salir" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.3-4.3"/></symbol>
+    <symbol id="i-lapiz" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+    <symbol id="i-cerrar" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-lugar" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-entra" viewBox="0 0 24 24"><path d="M17 7 7 17M17 17H7V7"/></symbol>
+    <symbol id="i-sale" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+    <symbol id="i-gente" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-tarea" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+    <symbol id="i-vacio" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+</svg>
+
 <!-- Pantalla 1: falta configurar las credenciales de Supabase.
      Sin esto el panel no tiene a dónde pedirle los datos, así que en vez de
      fallar con un error en consola lo dice en castellano. -->
 <section id="pantalla-config" class="pantalla" hidden>
     <div class="caja caja-ancha">
-        <h1 class="marca">EA</h1>
+        <div class="monograma">EA</div>
         <h2>Falta conectar la base</h2>
         <p>El panel está desplegado pero todavía no sabe a qué proyecto de Supabase hablarle.</p>
         <ol class="pasos">
@@ -56,21 +87,24 @@
     </div>
 </section>
 
-<!-- Pantalla 2: login -->
+<!-- Pantalla 2: login. Es lo primero que ve el cliente, así que es la
+     pantalla que más tiene que parecer terminada. -->
 <section id="pantalla-login" class="pantalla" hidden>
-    <form class="caja" id="form-login" autocomplete="on">
-        <h1 class="marca">EA</h1>
-        <h2>Panel del estudio</h2>
+    <form class="caja caja-login" id="form-login" autocomplete="on">
+        <div class="monograma">EA</div>
+        <h1 class="login-titulo">Espacio Arquitectura</h1>
+        <p class="login-sub">Panel del estudio</p>
 
         <label for="login-email">Correo</label>
-        <input type="email" id="login-email" name="email" required autocomplete="username">
+        <input type="email" id="login-email" name="email" required autocomplete="username" inputmode="email">
 
         <label for="login-pass">Contraseña</label>
         <input type="password" id="login-pass" name="password" required autocomplete="current-password">
 
-        <button type="submit" class="btn btn-primario" id="btn-entrar">Entrar</button>
+        <button type="submit" class="btn btn-primario btn-ancho" id="btn-entrar">Entrar</button>
         <p class="error" id="login-error" role="alert" hidden></p>
     </form>
+    <p class="login-pie">Acceso exclusivo del estudio</p>
 </section>
 
 <!-- Pantalla 3: el panel -->
@@ -78,16 +112,20 @@
     <header class="barra">
         <div class="barra-izq">
             <span class="marca-chica">EA</span>
-            <nav class="nav" id="nav">
-                <button class="nav-item" data-vista="agenda">Agenda</button>
-                <button class="nav-item" data-vista="pagos">Pagos</button>
-                <button class="nav-item" data-vista="materiales">Materiales</button>
-                <button class="nav-item" data-vista="obras">Obras</button>
+            <span class="fecha-hoy" id="fecha-hoy"></span>
+            <!-- En el escritorio la navegación va arriba; en el teléfono la
+                 misma lista se fija abajo como barra de pestañas, al alcance
+                 del pulgar. Es un solo bloque de HTML, cambia sólo el CSS. -->
+            <nav class="nav" id="nav" aria-label="Secciones">
+                <button class="nav-item" data-vista="agenda"><svg class="ico" aria-hidden="true"><use href="#i-agenda"/></svg><span>Agenda</span></button>
+                <button class="nav-item" data-vista="pagos"><svg class="ico" aria-hidden="true"><use href="#i-pagos"/></svg><span>Pagos</span></button>
+                <button class="nav-item" data-vista="materiales"><svg class="ico" aria-hidden="true"><use href="#i-materiales"/></svg><span>Materiales</span></button>
+                <button class="nav-item" data-vista="obras"><svg class="ico" aria-hidden="true"><use href="#i-obras"/></svg><span>Obras</span></button>
             </nav>
         </div>
         <div class="barra-der">
             <span class="usuario" id="usuario"></span>
-            <button class="btn btn-fantasma" id="btn-salir">Salir</button>
+            <button class="btn-salir" id="btn-salir" aria-label="Cerrar sesión" title="Cerrar sesión"><svg class="ico" aria-hidden="true"><use href="#i-salir"/></svg></button>
         </div>
     </header>
 
@@ -95,21 +133,34 @@
 
         <!-- Agenda ------------------------------------------------------- -->
         <section class="vista" id="vista-agenda" hidden>
+            <div class="saludo">
+                <h1 id="saludo">Buen día</h1>
+                <p id="resumen-dia" class="resumen-dia"></p>
+            </div>
+
             <div class="vista-cabecera">
                 <div class="semana-nav">
-                    <button class="btn btn-icono" id="semana-ant" aria-label="Semana anterior">&larr;</button>
+                    <button class="btn-redondo" id="semana-ant" aria-label="Semana anterior"><svg class="ico" aria-hidden="true"><use href="#i-izq"/></svg></button>
                     <h2 id="semana-titulo">Semana</h2>
-                    <button class="btn btn-icono" id="semana-sig" aria-label="Semana siguiente">&rarr;</button>
-                    <button class="btn btn-fantasma" id="semana-hoy">Hoy</button>
+                    <button class="btn-redondo" id="semana-sig" aria-label="Semana siguiente"><svg class="ico" aria-hidden="true"><use href="#i-der"/></svg></button>
+                    <button class="btn btn-suave" id="semana-hoy">Hoy</button>
                 </div>
-                <button class="btn btn-primario" data-nuevo="agenda">+ Nuevo</button>
+                <button class="btn btn-primario solo-escritorio" data-nuevo="agenda"><svg class="ico" aria-hidden="true"><use href="#i-mas"/></svg>Nuevo</button>
             </div>
+
+            <!-- Sólo en el teléfono: la semana entera no entra a lo ancho, así
+                 que una tira de siete días hace de índice para saltar al que
+                 se quiere ver. -->
+            <div class="tira-dias" id="tira-dias"></div>
 
             <div class="agenda-layout">
                 <div class="semana" id="semana"></div>
 
                 <aside class="panel-lateral">
-                    <h3>Trabajos pendientes</h3>
+                    <div class="panel-cabecera">
+                        <h3>Pendientes</h3>
+                        <span class="contador" id="contador-pendientes"></span>
+                    </div>
                     <p class="sub">Sin fecha o ya vencidos.</p>
                     <div id="pendientes"></div>
                 </aside>
@@ -119,8 +170,8 @@
         <!-- Pagos -------------------------------------------------------- -->
         <section class="vista" id="vista-pagos" hidden>
             <div class="vista-cabecera">
-                <h2>Pagos</h2>
-                <button class="btn btn-primario" data-nuevo="pago">+ Nuevo</button>
+                <h1 class="vista-titulo">Pagos</h1>
+                <button class="btn btn-primario solo-escritorio" data-nuevo="pago"><svg class="ico" aria-hidden="true"><use href="#i-mas"/></svg>Nuevo</button>
             </div>
 
             <div class="totales" id="totales-pagos"></div>
@@ -129,7 +180,7 @@
                 <button class="chip chip-activo" data-filtro="todos">Todos</button>
                 <button class="chip" data-filtro="pendiente">Pendientes</button>
                 <button class="chip" data-filtro="vencido">Vencidos</button>
-                <button class="chip" data-filtro="pagado">Pagados</button>
+                <button class="chip" data-filtro="pagado">Saldados</button>
             </div>
 
             <div id="lista-pagos"></div>
@@ -138,12 +189,13 @@
         <!-- Materiales --------------------------------------------------- -->
         <section class="vista" id="vista-materiales" hidden>
             <div class="vista-cabecera">
-                <h2>Pedidos de materiales</h2>
-                <button class="btn btn-primario" data-nuevo="pedido">+ Nuevo</button>
+                <h1 class="vista-titulo">Materiales</h1>
+                <button class="btn btn-primario solo-escritorio" data-nuevo="pedido"><svg class="ico" aria-hidden="true"><use href="#i-mas"/></svg>Nuevo pedido</button>
             </div>
-            <div class="barra-herramientas">
-                <input type="search" id="buscar-pedidos" class="buscador" placeholder="Buscar por proveedor, obra, material o nota..." aria-label="Buscar pedidos">
-            </div>
+            <label class="buscador">
+                <svg class="ico" aria-hidden="true"><use href="#i-buscar"/></svg>
+                <input type="search" id="buscar-pedidos" placeholder="Buscar proveedor, obra o material" aria-label="Buscar pedidos">
+            </label>
             <div id="lista-pedidos"></div>
         </section>
 
@@ -151,11 +203,11 @@
         <section class="vista" id="vista-obras" hidden>
             <div class="vista-cabecera">
                 <div class="obra-cabecera-izq">
-                    <button class="btn btn-fantasma" id="obra-volver" hidden>&larr; Todas las obras</button>
-                    <h2 id="obras-titulo">Obras</h2>
+                    <button class="btn-redondo" id="obra-volver" hidden aria-label="Volver a todas las obras"><svg class="ico" aria-hidden="true"><use href="#i-volver"/></svg></button>
+                    <h1 class="vista-titulo" id="obras-titulo">Obras</h1>
                 </div>
                 <div class="obra-cabecera-der" id="obra-acciones">
-                    <button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>
+                    <button class="btn btn-primario solo-escritorio" data-nuevo="obra"><svg class="ico" aria-hidden="true"><use href="#i-mas"/></svg>Nueva obra</button>
                 </div>
             </div>
             <div id="lista-obras"></div>
@@ -163,22 +215,28 @@
         </section>
 
     </main>
+
+    <!-- Botón flotante de alta. En el teléfono reemplaza a los "+ Nuevo" de
+         cada cabecera: siempre está en el mismo lugar, al alcance del pulgar,
+         y crea lo que corresponda a la pantalla en la que se está. -->
+    <button class="fab" id="fab" aria-label="Nuevo"><svg class="ico" aria-hidden="true"><use href="#i-mas"/></svg></button>
 </div>
 
 <!-- Modal de alta y edición. El formulario se arma desde JS según qué se esté
      cargando, así no hay cuatro modales casi iguales en el HTML. -->
 <div class="modal-fondo" id="modal-fondo" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+        <div class="modal-asa" aria-hidden="true"></div>
         <div class="modal-cabecera">
             <h2 id="modal-titulo"></h2>
-            <button class="btn btn-icono" id="modal-cerrar" aria-label="Cerrar">&times;</button>
+            <button class="btn-redondo" id="modal-cerrar" aria-label="Cerrar"><svg class="ico" aria-hidden="true"><use href="#i-cerrar"/></svg></button>
         </div>
         <form id="modal-form"></form>
         <p class="error" id="modal-error" role="alert" hidden></p>
         <div class="modal-pie">
             <button class="btn btn-peligro" id="modal-borrar" hidden>Borrar</button>
             <span class="espaciador"></span>
-            <button class="btn btn-fantasma" id="modal-cancelar">Cancelar</button>
+            <button class="btn btn-suave" id="modal-cancelar">Cancelar</button>
             <button class="btn btn-primario" id="modal-guardar">Guardar</button>
         </div>
     </div>
