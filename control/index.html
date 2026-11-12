@@ -16,7 +16,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="control.css">
+    <!-- Las rutas van absolutas a propósito. Vercel sirve esta página tanto en
+         /control como en /control/, y sin la barra final el navegador resuelve
+         "control.css" contra la raíz del sitio: pide /control.css, recibe un
+         404 y la página queda en blanco, porque todo arranca oculto y es el JS
+         el que muestra la pantalla que corresponde. Con la ruta absoluta
+         funciona de las dos maneras. -->
+    <link rel="stylesheet" href="/control/control.css">
 </head>
 <body>
 
@@ -158,6 +164,6 @@
 
 <div class="aviso" id="aviso" hidden role="status"></div>
 
-<script type="module" src="control.js"></script>
+<script type="module" src="/control/control.js"></script>
 </body>
 </html>
