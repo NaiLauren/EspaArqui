@@ -10,7 +10,7 @@ Tres pantallas: agenda semanal, pagos y pedidos de materiales.
 - **Supabase** pone la base de datos y el login. El navegador le habla
   directo; no hay servidor propio en el medio.
 - **La seguridad vive en la base**, no en el navegador. Las políticas RLS de
-  `supabase/migrations/20261112_control_inicial.sql` deciden quién ve qué.
+  `supabase/migrations/20261112000000_control_inicial.sql` deciden quién ve qué.
   Cualquier regla nueva va en SQL. El JavaScript del panel no protege nada y
   no debe intentar hacerlo: cualquiera puede leerlo y modificarlo.
 

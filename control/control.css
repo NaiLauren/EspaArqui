@@ -439,6 +439,29 @@ textarea { resize: vertical; min-height: 70px; }
 .ficha-monto { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
 .ficha-acciones { display: flex; gap: 0.4rem; }
 
+.barra-herramientas { margin-bottom: 1rem; }
+.buscador { max-width: 420px; }
+
+.obra-cabecera-izq, .obra-cabecera-der { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.obra-cabecera-der .btn-primario { margin-top: 0; }
+.obra-bloque { margin-top: 1.75rem; }
+.obra-bloque-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
+.obra-bloque-cabecera h3 { font-size: 1.05rem; font-weight: 600; }
+.obra-bloque-cabecera .btn-primario { margin-top: 0; padding: 0.4rem 0.85rem; font-size: 0.85rem; }
+.obra-resumen { margin-bottom: 1.25rem; }
+
+.ficha-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--negro);
+    cursor: pointer;
+    text-align: left;
+}
+.ficha-link:hover { text-decoration: underline; }
+
 .etiqueta {
     font-size: 0.7rem;
     font-weight: 600;
@@ -478,8 +501,8 @@ textarea { resize: vertical; min-height: 70px; }
 }
 
 .item-alta { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
-.item-alta input { width: auto; flex: 1; min-width: 110px; font-size: 0.85rem; padding: 0.4rem 0.5rem; }
-.item-alta input.chico { flex: 0 0 80px; min-width: 70px; }
+.item-alta input, .item-alta select { width: auto; flex: 1; min-width: 110px; font-size: 0.85rem; padding: 0.4rem 0.5rem; }
+.item-alta input.chico, .item-alta select.chico { flex: 0 0 80px; min-width: 70px; }
 .item-alta .btn { margin-top: 0; padding: 0.4rem 0.8rem; }
 
 .vacio {
@@ -567,6 +590,23 @@ textarea { resize: vertical; min-height: 70px; }
     .dia { min-height: auto; }
     .dia-hueco { min-height: 0.5rem; }
     .dia-cabecera { gap: 0.5rem; justify-content: flex-start; }
+
+    /* En lista vertical un día sin eventos no necesita una tarjeta entera:
+       queda como un renglón fino donde toda la fila sigue siendo clickeable
+       para agregar algo en esa fecha. */
+    .dia.dia-vacio {
+        flex-direction: row;
+        align-items: center;
+        padding: 0.45rem 0.65rem;
+        gap: 0.5rem;
+    }
+    .dia.dia-vacio .dia-hueco {
+        min-height: 1.5rem;
+        text-align: right;
+        color: var(--gris);
+        font-size: 0.78rem;
+    }
+    .dia.dia-vacio .dia-hueco::after { content: "+"; }
 }
 
 @media (max-width: 760px) {
@@ -619,7 +659,8 @@ textarea { resize: vertical; min-height: 70px; }
     .item [data-borrar-item] { order: 2; }
     .item-detalle { order: 3; flex: 1 0 100%; padding-left: 1.75rem; }
 
-    .item-alta input { font-size: 16px; }
+    .item-alta input, .item-alta select { font-size: 16px; }
+    .buscador { max-width: none; }
 
     /* Arriba y no abajo: en el teléfono el aviso aparecía justo sobre lo que
        se acababa de cargar, tapándolo. */

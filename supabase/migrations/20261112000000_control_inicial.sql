@@ -151,6 +151,7 @@ create table if not exists public.pedido_items (
     cantidad        numeric(12, 2) not null default 1 check (cantidad > 0),
     unidad          text not null default 'u',
     precio_unitario numeric(14, 2),
+    moneda          text not null default 'ARS' check (moneda in ('ARS', 'USD')),
     recibido        boolean not null default false,
     orden           integer not null default 0
 );

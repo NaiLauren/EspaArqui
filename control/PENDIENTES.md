@@ -29,6 +29,7 @@ Archivos:
 | `control/config.js` | URL y clave pública de Supabase (son públicas por diseño) |
 | `control/manifest.webmanifest` + `control/iconos/` | Para sumarlo a la pantalla de inicio |
 | `supabase/migrations/20261112000000_control_inicial.sql` | Tablas, índices y políticas |
+| `supabase/migrations/20261112010000_pedido_items_moneda.sql` | Columna `moneda` (ARS/USD) en `pedido_items` |
 | `control/README.md` | Puesta en marcha |
 
 Proyecto Supabase: **EspaArqui**, ref `mrmqwaotfhbfxqmnqmly`, región us-west-2.
@@ -52,22 +53,28 @@ desde `main`.
   `/rest/v1/rpc/`; lo marcó el linter de Supabase).
 - El login llega a Supabase: con un correo inexistente devuelve el mensaje de
   credenciales incorrectas, no un error de red.
-- Las cuatro pantallas andan a 375px y en escritorio, con datos de prueba.
+- Login real probado desde el navegador con `espacioarquitectura@gmail.com`.
+- Las cuatro pantallas andan a 375px y en escritorio, probadas con alta,
+  edición y baja real contra Supabase:
+  - Materiales a 375px con renglón apilado (nombre arriba, cantidad y precio
+    abajo).
+  - Confirmación `confirm()` al quitar un material del pedido.
+  - Aviso flotante `.aviso` arriba (`top: 5.5rem`) en móvil.
+  - Días vacíos compactos (`.dia-vacio`) en la vista vertical de agenda.
+  - Validación de horarios (`hora_fin > hora_inicio`) en agenda.
+  - Fecha de pago automática (`HOY`) al guardar un pago como pagado sin fecha,
+    y texto de respaldo si no la tuviera.
+  - Vista individual por obra ("Ver obra") con su resumen, totales, agenda,
+    pagos y pedidos de materiales juntos, y alta rápida precargando la obra.
+  - Buscador en vivo en pedidos de materiales (filtra por proveedor, obra,
+    material o nota).
+  - Soporte de moneda (ARS / USD) por ítem de material y totales separados por
+    moneda en cada pedido.
 
-### Hecho pero NO verificado
+### Pendiente de probar en dispositivo físico
 
-Esto se escribió y quedó sin mirar en pantalla. **Revisarlo primero.**
-
-1. **Materiales a 375px.** Se cambió el renglón de cada material para que el
-   nombre ocupe el ancho y la cantidad con el precio bajen al renglón de
-   abajo (`.item` en el media query de 760px). No se vio el resultado.
-2. **Confirmación al quitar un material.** Se agregó un `confirm()`; no se
-   probó que el texto salga bien ni que no se dispare de más.
-3. **El aviso flotante arriba en el teléfono** (`.aviso { top: 5.5rem }`).
-4. **El manifest.** No se probó agregar el panel a la pantalla de inicio en un
-   teléfono real, ni en Android ni en iOS.
-5. **Login real desde el navegador.** Nunca se hizo: hace falta la contraseña
-   de Martín. Todo lo que está detrás del login sí está probado.
+1. **El manifest.** Agregar el panel a la pantalla de inicio en un teléfono real
+   (Android e iOS) una vez desplegado en HTTPS.
 
 ## Cómo probarlo
 
@@ -117,35 +124,13 @@ Para reproducir el comportamiento de Vercel, un servidor que devuelva el
 
 ## Qué falta
 
-### 1. Terminar la revisión en teléfono
+### 1. Uso sin señal (decisión a futuro)
 
-Mirar los cinco puntos de "hecho pero no verificado". Después, recorrer a 375px
-las cuatro pantallas creando, editando y borrando en cada una.
-
-### 2. Cosas que molestan y no se llegaron a arreglar
-
-- **Los días vacíos ocupan una tarjeta entera.** En la lista vertical del
-  teléfono, un sábado sin nada hace scrollear igual que uno lleno. Convendría
-  que el día sin eventos sea un renglón fino, o esconderlo con un "mostrar días
-  vacíos".
-- **No hay validación de horarios.** Se puede cargar una reunión que termina
-  antes de empezar y se guarda sin chistar.
-- **Un pago marcado "pagado" sin fecha de pago** no muestra ninguna fecha en la
-  lista: queda el renglón a medias. O se exige la fecha al marcar pagado desde
-  el formulario, o se muestra algo en su lugar.
-- **No hay pantalla de una obra.** Hoy para saber cómo viene "Casa Mendoza" hay
-  que mirar tres pantallas y filtrar a ojo. Una vista por obra con su agenda,
-  sus pagos y sus pedidos juntos es, lejos, lo que más valor agrega y lo
-  primero que va a pedir el cliente cuando lo use en serio.
-- **No se puede buscar.** Sin buscador, con cincuenta pedidos cargados la
-  pantalla de materiales se vuelve incómoda.
-- **Los materiales asumen pesos.** `pedido_items` no tiene columna de moneda y
-  el total se arma como ARS. Si el estudio cotiza aberturas en dólares, miente.
 - **No anda sin señal.** En una obra sin datos el panel no abre. Resolverlo de
   verdad (service worker + cola de escrituras) es un proyecto aparte, no un
   ajuste; conviene decidirlo antes de prometerlo.
 
-### 3. Antes de mostrárselo al cliente
+### 2. Antes de mostrárselo al cliente
 
 La base tiene **datos de demostración** cargados a propósito: cuatro obras
 (Casa Mendoza, Local Bahia Shoes, Oficinas Rossi, Reforma Guemes 1450), catorce
@@ -160,7 +145,7 @@ truncate public.pedido_items, public.pedidos, public.pagos, public.agenda, publi
 
 Eso borra todo salvo los usuarios y la lista de miembros. No se puede deshacer.
 
-### 4. Desplegar
+### 3. Desplegar
 
 Mergear el PR #1. Vercel despliega a producción solo y `/control` queda en el
 dominio de siempre.

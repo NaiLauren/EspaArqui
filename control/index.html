@@ -49,7 +49,7 @@
         <p>El panel está desplegado pero todavía no sabe a qué proyecto de Supabase hablarle.</p>
         <ol class="pasos">
             <li>Crear un proyecto en Supabase.</li>
-            <li>Correr <code>supabase/migrations/20261112_control_inicial.sql</code> en el editor SQL.</li>
+            <li>Correr <code>supabase/migrations/20261112000000_control_inicial.sql</code> en el editor SQL.</li>
             <li>Copiar la URL del proyecto y la clave pública en <code>control/config.js</code>.</li>
         </ol>
         <p class="nota">Los pasos completos están en <code>control/README.md</code>.</p>
@@ -141,16 +141,25 @@
                 <h2>Pedidos de materiales</h2>
                 <button class="btn btn-primario" data-nuevo="pedido">+ Nuevo</button>
             </div>
+            <div class="barra-herramientas">
+                <input type="search" id="buscar-pedidos" class="buscador" placeholder="Buscar por proveedor, obra, material o nota..." aria-label="Buscar pedidos">
+            </div>
             <div id="lista-pedidos"></div>
         </section>
 
         <!-- Obras -------------------------------------------------------- -->
         <section class="vista" id="vista-obras" hidden>
             <div class="vista-cabecera">
-                <h2>Obras</h2>
-                <button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>
+                <div class="obra-cabecera-izq">
+                    <button class="btn btn-fantasma" id="obra-volver" hidden>&larr; Todas las obras</button>
+                    <h2 id="obras-titulo">Obras</h2>
+                </div>
+                <div class="obra-cabecera-der" id="obra-acciones">
+                    <button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>
+                </div>
             </div>
             <div id="lista-obras"></div>
+            <div id="detalle-obra" hidden></div>
         </section>
 
     </main>

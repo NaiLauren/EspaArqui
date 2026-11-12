@@ -100,7 +100,9 @@ const estado = {
     vista: "agenda",
     lunes: lunesDe(new Date()),
     obras: [],
+    obraActiva: null,
     filtroPagos: "todos",
+    busquedaPedidos: "",
     // Qué pedidos están desplegados. Se guarda acá y no en el DOM para que al
     // redibujar la lista (por ejemplo tras tildar un material) los pedidos
     // abiertos no se cierren solos.
@@ -259,12 +261,24 @@ function irA(vista) {
 
 $("#nav").addEventListener("click", (ev) => {
     const boton = ev.target.closest(".nav-item");
-    if (boton) irA(boton.dataset.vista);
+    if (!boton) return;
+    if (boton.dataset.vista === "obras") estado.obraActiva = null;
+    irA(boton.dataset.vista);
 });
 
 window.addEventListener("hashchange", () => {
     const vista = location.hash.replace("#", "");
     if (vista && vista !== estado.vista) irA(vista);
+});
+
+function abrirObra(id) {
+    estado.obraActiva = id;
+    irA("obras");
+}
+
+$("#obra-volver").addEventListener("click", () => {
+    estado.obraActiva = null;
+    pintarObras();
 });
 
 // ---------------------------------------------------------------------------
@@ -284,7 +298,19 @@ function nombreObra(id) {
 
 async function pintarObras() {
     await cargarObras();
+    if (estado.obraActiva) {
+        const existe = estado.obras.some((o) => o.id === estado.obraActiva);
+        if (existe) return pintarDetalleObra(estado.obraActiva);
+        estado.obraActiva = null;
+    }
+
+    $("#obra-volver").hidden = true;
+    $("#obras-titulo").textContent = "Obras";
+    $("#obra-acciones").innerHTML = `<button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>`;
+    $("#detalle-obra").hidden = true;
+
     const cont = $("#lista-obras");
+    cont.hidden = false;
 
     if (estado.obras.length === 0) {
         cont.innerHTML = `<p class="vacio">Todavía no hay obras cargadas. La obra es lo que ata la agenda, los pagos y los materiales, así que conviene empezar por acá.</p>`;
@@ -296,14 +322,90 @@ async function pintarObras() {
     cont.innerHTML = estado.obras.map((o) => `
         <div class="ficha">
             <div class="ficha-cuerpo">
-                <div class="ficha-titulo">${esc(o.nombre)}</div>
+                <div class="ficha-titulo">
+                    <button class="ficha-link" data-ver-obra="${o.id}">${esc(o.nombre)}</button>
+                </div>
                 <div class="ficha-sub">${esc(o.cliente || "Sin cliente")}${o.notas ? " · " + esc(o.notas) : ""}</div>
             </div>
             <span class="etiqueta ${etiquetas[o.estado]}">${esc(o.estado)}</span>
             <div class="ficha-acciones">
+                <button class="btn btn-fantasma" data-ver-obra="${o.id}">Ver obra</button>
                 <button class="btn btn-fantasma" data-editar="obra" data-id="${o.id}">Editar</button>
             </div>
         </div>`).join("");
+}
+
+async function pintarDetalleObra(obraId) {
+    const obra = estado.obras.find((o) => o.id === obraId);
+    if (!obra) return;
+
+    const etiquetasObra = { activa: "ok", pausada: "alerta", terminada: "neutro" };
+
+    $("#obra-volver").hidden = false;
+    $("#obras-titulo").textContent = obra.nombre;
+    $("#obra-acciones").innerHTML = `
+        <span class="etiqueta ${etiquetasObra[obra.estado]}">${esc(obra.estado)}</span>
+        <button class="btn btn-fantasma" data-editar="obra" data-id="${obra.id}">Editar obra</button>`;
+    $("#lista-obras").hidden = true;
+
+    const [agendaRes, pagosRes, pedidosRes] = await Promise.all([
+        db.from("agenda").select("*").eq("obra_id", obraId).order("fecha", { nullsFirst: true }).order("hora_inicio", { nullsFirst: false }),
+        db.from("pagos").select("*").eq("obra_id", obraId).order("creado", { ascending: false }),
+        db.from("pedidos").select("*, pedido_items(*)").eq("obra_id", obraId).order("creado", { ascending: false }),
+    ]);
+
+    if (agendaRes.error) return fallo(agendaRes.error, "cargar la agenda de la obra");
+    if (pagosRes.error) return fallo(pagosRes.error, "cargar los pagos de la obra");
+    if (pedidosRes.error) return fallo(pedidosRes.error, "cargar los pedidos de la obra");
+
+    const pagos = pagosRes.data;
+    ordenarPagos(pagos);
+
+    const agenda = agendaRes.data;
+    const pedidos = pedidosRes.data;
+
+    const sub = [obra.cliente || "Sin cliente", obra.notas].filter(Boolean).join(" · ");
+    const cont = $("#detalle-obra");
+    cont.hidden = false;
+
+    cont.innerHTML = `
+        <div class="ficha obra-resumen">
+            <div class="ficha-cuerpo">
+                <div class="ficha-sub">${esc(sub)}</div>
+            </div>
+        </div>
+
+        <div class="totales">${htmlTotalesPagos(pagos)}</div>
+
+        <div class="obra-bloque">
+            <div class="obra-bloque-cabecera">
+                <h3>Agenda de la obra (${agenda.length})</h3>
+                <button class="btn btn-primario" data-nuevo="agenda" data-obra="${obra.id}">+ Entrada</button>
+            </div>
+            ${agenda.length === 0
+                ? `<p class="vacio">No hay entradas de agenda en esta obra.</p>`
+                : agenda.map((e) => chipEvento(e, true, false)).join("")}
+        </div>
+
+        <div class="obra-bloque">
+            <div class="obra-bloque-cabecera">
+                <h3>Pagos de la obra (${pagos.length})</h3>
+                <button class="btn btn-primario" data-nuevo="pago" data-obra="${obra.id}">+ Pago</button>
+            </div>
+            ${pagos.length === 0
+                ? `<p class="vacio">No hay pagos cargados en esta obra.</p>`
+                : pagos.map((p) => fichaPagoHTML(p, false)).join("")}
+        </div>
+
+        <div class="obra-bloque">
+            <div class="obra-bloque-cabecera">
+                <h3>Pedidos de materiales (${pedidos.length})</h3>
+                <button class="btn btn-primario" data-nuevo="pedido" data-obra="${obra.id}">+ Pedido</button>
+            </div>
+            ${pedidos.length === 0
+                ? `<p class="vacio">No hay pedidos de materiales en esta obra.</p>`
+                : pedidos.map((p) => fichaPedidoHTML(p, false)).join("")}
+        </div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -345,7 +447,7 @@ async function pintarAgenda() {
         const delDia = semana.data.filter((e) => e.fecha === iso);
 
         return `
-            <div class="dia ${i >= 5 ? "finde" : ""} ${iso === HOY ? "hoy" : ""}">
+            <div class="dia ${i >= 5 ? "finde" : ""} ${iso === HOY ? "hoy" : ""} ${delDia.length === 0 ? "dia-vacio" : ""}">
                 <div class="dia-cabecera">
                     <span class="dia-nombre">${nombre.slice(0, 3)}</span>
                     <span class="dia-numero">${fecha.getDate()}</span>
@@ -364,12 +466,19 @@ async function pintarAgenda() {
         : pendientes.data.map((e) => chipEvento(e, true)).join("");
 }
 
-function chipEvento(e, enPanel = false) {
-    const atrasado = enPanel && e.fecha && e.fecha < HOY;
+function chipEvento(e, enPanel = false, mostrarObra = true) {
+    const atrasado = enPanel && e.estado === "pendiente" && e.fecha && e.fecha < HOY;
     const hora = e.hora_inicio ? e.hora_inicio.slice(0, 5) : "";
-    const encabezado = enPanel
-        ? (e.fecha ? `Venció el ${fechaCorta(e.fecha)}` : "Sin fecha")
-        : hora;
+    let encabezado = hora;
+    if (enPanel) {
+        if (!e.fecha) {
+            encabezado = "Sin fecha";
+        } else if (atrasado) {
+            encabezado = `Venció el ${fechaCorta(e.fecha)}`;
+        } else {
+            encabezado = fechaCorta(e.fecha) + (hora ? ` · ${hora}` : "");
+        }
+    }
 
     // Dos botones y no uno: el cuerpo abre la ficha y el tilde la da por
     // hecha. Un <button> no puede contener otro, así que el contenedor es un
@@ -379,7 +488,7 @@ function chipEvento(e, enPanel = false) {
             <button class="evento-cuerpo" data-editar="agenda" data-id="${e.id}">
                 ${encabezado ? `<span class="evento-hora">${esc(encabezado)}</span>` : ""}
                 <span class="evento-titulo">${esc(e.titulo)}</span>
-                ${e.obra_id ? `<span class="evento-obra">${esc(nombreObra(e.obra_id))}</span>` : ""}
+                ${mostrarObra && e.obra_id ? `<span class="evento-obra">${esc(nombreObra(e.obra_id))}</span>` : ""}
             </button>
             ${e.estado !== "cancelado" ? `
             <button class="evento-tilde" data-hecho="${e.id}" data-estado="${e.estado}"
@@ -400,12 +509,7 @@ $("#filtros-pagos").addEventListener("click", (ev) => {
     pintarPagos();
 });
 
-async function pintarPagos() {
-    const { data, error } = await db.from("pagos").select("*")
-        .order("creado", { ascending: false });
-
-    if (error) return fallo(error, "cargar los pagos");
-
+function ordenarPagos(data) {
     // Ordenar por vencimiento a secas dejaba arriba lo más viejo, que
     // justamente es lo que ya está cobrado, y empujaba lo vencido al fondo de
     // la lista. Lo que hay que reclamar va primero: pendientes ordenados por
@@ -420,8 +524,52 @@ async function pintarPagos() {
         }
         return (b.fecha_pago || "") < (a.fecha_pago || "") ? -1 : 1;
     });
+}
 
-    pintarTotales(data);
+function fichaPagoHTML(p, mostrarObra = true) {
+    const vencido = p.estado === "pendiente" && p.vence && p.vence < HOY;
+    const etiqueta = p.estado === "pagado"
+        ? `<span class="etiqueta ok">${p.tipo === "cobro" ? "cobrado" : "pagado"}</span>`
+        : vencido
+            ? `<span class="etiqueta mal">vencido</span>`
+            : `<span class="etiqueta alerta">pendiente</span>`;
+
+    const cuando = p.estado === "pagado"
+        ? (p.fecha_pago ? "El " + fechaCorta(p.fecha_pago) : "Sin fecha de pago")
+        : (p.vence ? "Vence el " + fechaCorta(p.vence) : "Sin vencimiento");
+
+    const detalle = [
+        mostrarObra ? nombreObra(p.obra_id) : "",
+        cuando,
+        p.metodo,
+    ].filter(Boolean).join(" · ");
+
+    return `
+        <div class="ficha">
+            <div class="ficha-cuerpo">
+                <div class="ficha-titulo">${esc(p.concepto)}</div>
+                <div class="ficha-sub">${esc(detalle)}</div>
+            </div>
+            <span class="etiqueta neutro">${p.tipo === "cobro" ? "a cobrar" : "a pagar"}</span>
+            ${etiqueta}
+            <span class="ficha-monto">${plata(p.monto, p.moneda)}</span>
+            <div class="ficha-acciones">
+                ${p.estado === "pendiente"
+                    ? `<button class="btn btn-fantasma" data-marcar-pagado="${p.id}">Marcar pagado</button>`
+                    : ""}
+                <button class="btn btn-fantasma" data-editar="pago" data-id="${p.id}">Editar</button>
+            </div>
+        </div>`;
+}
+
+async function pintarPagos() {
+    const { data, error } = await db.from("pagos").select("*")
+        .order("creado", { ascending: false });
+
+    if (error) return fallo(error, "cargar los pagos");
+
+    ordenarPagos(data);
+    $("#totales-pagos").innerHTML = htmlTotalesPagos(data);
 
     const visibles = data.filter((p) => {
         switch (estado.filtroPagos) {
@@ -438,40 +586,10 @@ async function pintarPagos() {
         return;
     }
 
-    cont.innerHTML = visibles.map((p) => {
-        const vencido = p.estado === "pendiente" && p.vence && p.vence < HOY;
-        const etiqueta = p.estado === "pagado"
-            ? `<span class="etiqueta ok">${p.tipo === "cobro" ? "cobrado" : "pagado"}</span>`
-            : vencido
-                ? `<span class="etiqueta mal">vencido</span>`
-                : `<span class="etiqueta alerta">pendiente</span>`;
-
-        const cuando = p.estado === "pagado"
-            ? (p.fecha_pago ? "El " + fechaCorta(p.fecha_pago) : "")
-            : (p.vence ? "Vence el " + fechaCorta(p.vence) : "Sin vencimiento");
-
-        const detalle = [nombreObra(p.obra_id), cuando, p.metodo].filter(Boolean).join(" · ");
-
-        return `
-            <div class="ficha">
-                <div class="ficha-cuerpo">
-                    <div class="ficha-titulo">${esc(p.concepto)}</div>
-                    <div class="ficha-sub">${esc(detalle)}</div>
-                </div>
-                <span class="etiqueta neutro">${p.tipo === "cobro" ? "a cobrar" : "a pagar"}</span>
-                ${etiqueta}
-                <span class="ficha-monto">${plata(p.monto, p.moneda)}</span>
-                <div class="ficha-acciones">
-                    ${p.estado === "pendiente"
-                        ? `<button class="btn btn-fantasma" data-marcar-pagado="${p.id}">Marcar pagado</button>`
-                        : ""}
-                    <button class="btn btn-fantasma" data-editar="pago" data-id="${p.id}">Editar</button>
-                </div>
-            </div>`;
-    }).join("");
+    cont.innerHTML = visibles.map((p) => fichaPagoHTML(p, true)).join("");
 }
 
-function pintarTotales(pagos) {
+function htmlTotalesPagos(pagos) {
     // Los totales se acumulan por moneda. Sumar pesos con dólares daría un
     // número que no significa nada, así que cada tarjeta muestra una línea
     // por moneda y sólo si tiene algo.
@@ -508,16 +626,92 @@ function pintarTotales(pagos) {
             </div>`;
     };
 
-    $("#totales-pagos").innerHTML =
+    return (
         tarjeta("Por cobrar", t.cobrar) +
         tarjeta("Vencido", t.vencido, "rojo") +
         tarjeta("Cobrado este mes", t.cobrado, "verde") +
-        tarjeta("Gastos pendientes", t.pagar);
+        tarjeta("Gastos pendientes", t.pagar)
+    );
 }
 
 // ---------------------------------------------------------------------------
 // Pedidos de materiales
 // ---------------------------------------------------------------------------
+
+$("#buscar-pedidos").addEventListener("input", (ev) => {
+    estado.busquedaPedidos = ev.target.value;
+    pintarPedidos();
+});
+
+function fichaPedidoHTML(p, mostrarObra = true) {
+    const etiquetas = { borrador: "neutro", pedido: "alerta", recibido: "ok", cancelado: "neutro" };
+    const items = (p.pedido_items || []).sort((a, b) => a.orden - b.orden);
+    const abierto = estado.pedidosAbiertos.has(p.id);
+    const recibidos = items.filter((i) => i.recibido).length;
+
+    const totales = { ARS: 0, USD: 0 };
+    for (const i of items) {
+        const m = i.moneda === "USD" ? "USD" : "ARS";
+        totales[m] += (Number(i.precio_unitario) || 0) * Number(i.cantidad);
+    }
+    const montosHTML = ["ARS", "USD"]
+        .filter((m) => totales[m] > 0)
+        .map((m) => `<span class="ficha-monto">${plata(totales[m], m)}</span>`)
+        .join("");
+
+    const detalle = [
+        mostrarObra ? nombreObra(p.obra_id) : "",
+        p.fecha_pedido ? "Pedido el " + fechaCorta(p.fecha_pedido) : "",
+        p.entrega_estimada ? "Entrega " + fechaCorta(p.entrega_estimada) : "",
+        items.length ? `${recibidos}/${items.length} recibidos` : "sin materiales",
+    ].filter(Boolean).join(" · ");
+
+    return `
+        <div class="ficha pedido">
+            <div class="pedido-cabecera">
+                <div class="ficha-cuerpo">
+                    <div class="ficha-titulo">${esc(p.proveedor || "Sin proveedor")}</div>
+                    <div class="ficha-sub">${esc(detalle)}</div>
+                </div>
+                <span class="etiqueta ${etiquetas[p.estado]}">${esc(p.estado)}</span>
+                ${montosHTML}
+                <div class="ficha-acciones">
+                    <button class="btn btn-fantasma" data-desplegar="${p.id}">${abierto ? "Ocultar" : "Materiales"}</button>
+                    <button class="btn btn-fantasma" data-editar="pedido" data-id="${p.id}">Editar</button>
+                </div>
+            </div>
+
+            ${abierto ? `
+            <div class="pedido-items">
+                ${items.map((i) => {
+                    const monedaItem = i.moneda === "USD" ? "USD" : "ARS";
+                    return `
+                    <label class="item ${i.recibido ? "listo" : ""}">
+                        <input type="checkbox" data-item="${i.id}" ${i.recibido ? "checked" : ""}>
+                        <span class="item-nombre">${esc(i.material)}</span>
+                        <span class="item-detalle">${Number(i.cantidad)} ${esc(i.unidad)}${
+                            i.precio_unitario ? " · " + plata(i.precio_unitario * i.cantidad, monedaItem) : ""
+                        }</span>
+                        <button class="btn btn-icono" data-borrar-item="${i.id}"
+                                data-material="${esc(i.material)}"
+                                aria-label="Quitar ${esc(i.material)}">&times;</button>
+                    </label>`;
+                }).join("")}
+
+                <form class="item-alta" data-alta-item="${p.id}">
+                    <input name="material" placeholder="Material" required aria-label="Material">
+                    <input name="cantidad" class="chico" type="number" step="0.01" min="0.01" value="1" aria-label="Cantidad">
+                    <input name="unidad" class="chico" placeholder="u" value="u" aria-label="Unidad">
+                    <input name="precio" class="chico" type="number" step="0.01" min="0" placeholder="Precio c/u" aria-label="Precio unitario">
+                    <select name="moneda" class="chico" aria-label="Moneda">
+                        <option value="ARS">ARS ($)</option>
+                        <option value="USD">USD (US$)</option>
+                    </select>
+                    <button class="btn btn-fantasma" type="submit">Agregar</button>
+                </form>
+            </div>` : ""}
+        </div>`;
+}
 
 async function pintarPedidos() {
     // Una sola consulta trae el pedido y sus materiales: pedirlos por separado
@@ -534,64 +728,27 @@ async function pintarPedidos() {
         return;
     }
 
-    const etiquetas = { borrador: "neutro", pedido: "alerta", recibido: "ok", cancelado: "neutro" };
-
-    cont.innerHTML = data.map((p) => {
-        const items = (p.pedido_items || []).sort((a, b) => a.orden - b.orden);
-        const abierto = estado.pedidosAbiertos.has(p.id);
-        const recibidos = items.filter((i) => i.recibido).length;
-        const total = items.reduce((s, i) => s + (Number(i.precio_unitario) || 0) * Number(i.cantidad), 0);
-
-        const detalle = [
+    const q = estado.busquedaPedidos.trim().toLowerCase();
+    const filtrados = !q ? data : data.filter((p) => {
+        const textoPedido = [
+            p.proveedor,
             nombreObra(p.obra_id),
-            p.fecha_pedido ? "Pedido el " + fechaCorta(p.fecha_pedido) : "",
-            p.entrega_estimada ? "Entrega " + fechaCorta(p.entrega_estimada) : "",
-            items.length ? `${recibidos}/${items.length} recibidos` : "sin materiales",
-        ].filter(Boolean).join(" · ");
+            p.notas,
+            ...(p.pedido_items || []).map((i) => i.material),
+        ].filter(Boolean).join(" ").toLowerCase();
+        return textoPedido.includes(q);
+    });
 
-        return `
-            <div class="ficha pedido">
-                <div class="pedido-cabecera">
-                    <div class="ficha-cuerpo">
-                        <div class="ficha-titulo">${esc(p.proveedor || "Sin proveedor")}</div>
-                        <div class="ficha-sub">${esc(detalle)}</div>
-                    </div>
-                    <span class="etiqueta ${etiquetas[p.estado]}">${esc(p.estado)}</span>
-                    ${total > 0 ? `<span class="ficha-monto">${plata(total, "ARS")}</span>` : ""}
-                    <div class="ficha-acciones">
-                        <button class="btn btn-fantasma" data-desplegar="${p.id}">${abierto ? "Ocultar" : "Materiales"}</button>
-                        <button class="btn btn-fantasma" data-editar="pedido" data-id="${p.id}">Editar</button>
-                    </div>
-                </div>
+    if (filtrados.length === 0) {
+        cont.innerHTML = `<p class="vacio">No hay pedidos que coincidan con "${esc(estado.busquedaPedidos.trim())}".</p>`;
+        return;
+    }
 
-                ${abierto ? `
-                <div class="pedido-items">
-                    ${items.map((i) => `
-                        <label class="item ${i.recibido ? "listo" : ""}">
-                            <input type="checkbox" data-item="${i.id}" ${i.recibido ? "checked" : ""}>
-                            <span class="item-nombre">${esc(i.material)}</span>
-                            <!-- Cantidad y precio van en un solo elemento para
-                                 que en el teléfono bajen juntos al renglón de
-                                 abajo, en vez de partirse en dos columnas que
-                                 dejan el nombre en tiras de tres letras. -->
-                            <span class="item-detalle">${Number(i.cantidad)} ${esc(i.unidad)}${
-                                i.precio_unitario ? " · " + plata(i.precio_unitario * i.cantidad, "ARS") : ""
-                            }</span>
-                            <button class="btn btn-icono" data-borrar-item="${i.id}"
-                                    data-material="${esc(i.material)}"
-                                    aria-label="Quitar ${esc(i.material)}">&times;</button>
-                        </label>`).join("")}
+    cont.innerHTML = filtrados.map((p) => fichaPedidoHTML(p, true)).join("");
+}
 
-                    <form class="item-alta" data-alta-item="${p.id}">
-                        <input name="material" placeholder="Material" required aria-label="Material">
-                        <input name="cantidad" class="chico" type="number" step="0.01" min="0.01" value="1" aria-label="Cantidad">
-                        <input name="unidad" class="chico" placeholder="u" value="u" aria-label="Unidad">
-                        <input name="precio" class="chico" type="number" step="0.01" min="0" placeholder="$ c/u" aria-label="Precio unitario">
-                        <button class="btn btn-fantasma" type="submit">Agregar</button>
-                    </form>
-                </div>` : ""}
-            </div>`;
-    }).join("");
+function refrescarVistaActual() {
+    VISTAS[estado.vista]();
 }
 
 // ---------------------------------------------------------------------------
@@ -601,11 +758,17 @@ async function pintarPedidos() {
 // Un solo listener en el contenido en vez de uno por fila: las listas se
 // redibujan enteras a cada rato y así no hay que volver a enganchar nada.
 $(".contenido").addEventListener("click", async (ev) => {
+    const verObra = ev.target.closest("[data-ver-obra]");
+    if (verObra) return abrirObra(verObra.dataset.verObra);
+
     const editar = ev.target.closest("[data-editar]");
     if (editar) return abrirModal(editar.dataset.editar, editar.dataset.id);
 
     const nuevo = ev.target.closest("[data-nuevo]");
-    if (nuevo) return abrirModal(nuevo.dataset.nuevo);
+    if (nuevo) {
+        const inicial = nuevo.dataset.obra ? { obra_id: nuevo.dataset.obra } : {};
+        return abrirModal(nuevo.dataset.nuevo, null, inicial);
+    }
 
     const nuevoDia = ev.target.closest("[data-nuevo-dia]");
     if (nuevoDia) return abrirModal("agenda", null, { fecha: nuevoDia.dataset.nuevoDia });
@@ -616,7 +779,7 @@ $(".contenido").addEventListener("click", async (ev) => {
         estado.pedidosAbiertos.has(id)
             ? estado.pedidosAbiertos.delete(id)
             : estado.pedidosAbiertos.add(id);
-        return pintarPedidos();
+        return refrescarVistaActual();
     }
 
     const pagar = ev.target.closest("[data-marcar-pagado]");
@@ -626,7 +789,7 @@ $(".contenido").addEventListener("click", async (ev) => {
             .eq("id", pagar.dataset.marcarPagado);
         if (error) return fallo(error, "marcar el pago");
         aviso("Pago registrado.");
-        return pintarPagos();
+        return refrescarVistaActual();
     }
 
     const borrarItem = ev.target.closest("[data-borrar-item]");
@@ -641,7 +804,7 @@ $(".contenido").addEventListener("click", async (ev) => {
         if (!confirm(`¿Quitar "${borrarItem.dataset.material}" del pedido?`)) return;
         const { error } = await db.from("pedido_items").delete().eq("id", borrarItem.dataset.borrarItem);
         if (error) return fallo(error, "quitar el material");
-        return pintarPedidos();
+        return refrescarVistaActual();
     }
 
     const marcarHecho = ev.target.closest("[data-hecho]");
@@ -653,7 +816,7 @@ $(".contenido").addEventListener("click", async (ev) => {
             .update({ estado: marcarHecho.dataset.estado === "hecho" ? "pendiente" : "hecho" })
             .eq("id", marcarHecho.dataset.hecho);
         if (error) return fallo(error, "cambiar el estado");
-        return pintarAgenda();
+        return refrescarVistaActual();
     }
 });
 
@@ -664,7 +827,7 @@ $(".contenido").addEventListener("change", async (ev) => {
         .update({ recibido: check.checked })
         .eq("id", check.dataset.item);
     if (error) return fallo(error, "actualizar el material");
-    pintarPedidos();
+    refrescarVistaActual();
 });
 
 $(".contenido").addEventListener("submit", async (ev) => {
@@ -674,18 +837,30 @@ $(".contenido").addEventListener("submit", async (ev) => {
 
     const datos = new FormData(form);
     const precio = datos.get("precio");
+    const moneda = datos.get("moneda") || "ARS";
 
-    const { error } = await db.from("pedido_items").insert({
+    const fila = {
         pedido_id: form.dataset.altaItem,
         material: datos.get("material").trim(),
         cantidad: Number(datos.get("cantidad")) || 1,
         unidad: (datos.get("unidad") || "u").trim() || "u",
         precio_unitario: precio === "" ? null : Number(precio),
+        moneda,
         orden: Date.now() % 100000,
-    });
+    };
+
+    let { error } = await db.from("pedido_items").insert(fila);
+    if (error && /moneda/i.test(error.message || "")) {
+        if (moneda === "USD") {
+            aviso("Para guardar materiales en dólares hay que correr la migración de moneda en Supabase.", true);
+            return;
+        }
+        delete fila.moneda;
+        ({ error } = await db.from("pedido_items").insert(fila));
+    }
 
     if (error) return fallo(error, "agregar el material");
-    pintarPedidos();
+    refrescarVistaActual();
 });
 
 // ---------------------------------------------------------------------------
@@ -878,6 +1053,17 @@ async function guardarModal() {
         // "" en columnas date, time y uuid, y un texto vacío guardado como ""
         // obligaría a chequear dos casos en todas las vistas.
         datos[c.n] = bruto === "" ? null : (c.t === "number" ? Number(bruto) : bruto);
+    }
+
+    if (clave === "agenda" && datos.hora_inicio && datos.hora_fin && datos.hora_fin <= datos.hora_inicio) {
+        err.textContent = "La hora de fin tiene que ser posterior a la de inicio.";
+        err.hidden = false;
+        form.elements.hora_fin.focus();
+        return;
+    }
+
+    if (clave === "pago" && datos.estado === "pagado" && !datos.fecha_pago) {
+        datos.fecha_pago = HOY;
     }
 
     const boton = $("#modal-guardar");
