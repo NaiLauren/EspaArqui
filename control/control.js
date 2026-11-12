@@ -116,11 +116,41 @@ function aviso(texto, mal = false) {
     aviso.t = setTimeout(() => { el.hidden = true; }, 2800);
 }
 
+// Cómo se llama cada columna cuando hay que nombrarla en un mensaje.
+const NOMBRES = {
+    titulo: "el título", concepto: "el concepto", nombre: "el nombre",
+    material: "el material", monto: "el monto", cantidad: "la cantidad",
+    tipo: "el tipo", estado: "el estado", moneda: "la moneda",
+    fecha: "la fecha", vence: "el vencimiento", proveedor: "el proveedor",
+};
+
+// Postgres contesta en inglés y hablando de columnas y restricciones. Eso no
+// se le muestra a nadie: acá se traduce a algo que diga qué hacer. Lo que no
+// esté contemplado cae en un mensaje genérico, y el detalle técnico queda en
+// la consola para poder diagnosticarlo.
+function mensajeDeError(error) {
+    const texto = error && error.message ? error.message : "";
+
+    const faltante = texto.match(/null value in column "(\w+)"/);
+    if (faltante) return `Falta completar ${NOMBRES[faltante[1]] || faltante[1]}.`;
+
+    const invalido = texto.match(/violates check constraint "\w+?_(\w+)_check"/);
+    if (invalido) return `Ese valor no sirve para ${NOMBRES[invalido[1]] || invalido[1]}.`;
+
+    if (/numeric field overflow/i.test(texto)) return "Ese número es demasiado grande.";
+    if (/invalid input syntax for type date/i.test(texto)) return "Esa fecha no es válida.";
+    if (/invalid input syntax for type time/i.test(texto)) return "Esa hora no es válida.";
+    if (/duplicate key/i.test(texto)) return "Ya existe un registro igual.";
+    if (/Failed to fetch|NetworkError/i.test(texto)) return "Sin conexión. Fijate la señal y probá de nuevo.";
+
+    return "No se pudo guardar. Probá de nuevo.";
+}
+
 // Un único lugar donde se mira el error de Supabase, así ninguna pantalla se
 // queda en blanco sin decir por qué.
 function fallo(error, contexto) {
     console.error(contexto, error);
-    aviso(`No se pudo ${contexto}: ${error.message}`, true);
+    aviso(`No se pudo ${contexto}. ${mensajeDeError(error)}`, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -341,13 +371,21 @@ function chipEvento(e, enPanel = false) {
         ? (e.fecha ? `Venció el ${fechaCorta(e.fecha)}` : "Sin fecha")
         : hora;
 
+    // Dos botones y no uno: el cuerpo abre la ficha y el tilde la da por
+    // hecha. Un <button> no puede contener otro, así que el contenedor es un
+    // div y el recuadro lo dibuja él.
     return `
-        <button class="evento ${e.tipo} ${e.estado} ${atrasado ? "atrasado" : ""}"
-                data-editar="agenda" data-id="${e.id}">
-            ${encabezado ? `<span class="evento-hora">${esc(encabezado)}</span>` : ""}
-            <span class="evento-titulo">${esc(e.titulo)}</span>
-            ${e.obra_id ? `<span class="evento-obra">${esc(nombreObra(e.obra_id))}</span>` : ""}
-        </button>`;
+        <div class="evento ${e.tipo} ${e.estado} ${atrasado ? "atrasado" : ""}">
+            <button class="evento-cuerpo" data-editar="agenda" data-id="${e.id}">
+                ${encabezado ? `<span class="evento-hora">${esc(encabezado)}</span>` : ""}
+                <span class="evento-titulo">${esc(e.titulo)}</span>
+                ${e.obra_id ? `<span class="evento-obra">${esc(nombreObra(e.obra_id))}</span>` : ""}
+            </button>
+            ${e.estado !== "cancelado" ? `
+            <button class="evento-tilde" data-hecho="${e.id}" data-estado="${e.estado}"
+                    aria-label="${e.estado === "hecho" ? "Marcar como pendiente" : "Marcar como hecho"}"
+                    aria-pressed="${e.estado === "hecho"}">✓</button>` : ""}
+        </div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -364,10 +402,24 @@ $("#filtros-pagos").addEventListener("click", (ev) => {
 
 async function pintarPagos() {
     const { data, error } = await db.from("pagos").select("*")
-        .order("vence", { nullsFirst: false })
         .order("creado", { ascending: false });
 
     if (error) return fallo(error, "cargar los pagos");
+
+    // Ordenar por vencimiento a secas dejaba arriba lo más viejo, que
+    // justamente es lo que ya está cobrado, y empujaba lo vencido al fondo de
+    // la lista. Lo que hay que reclamar va primero: pendientes ordenados por
+    // vencimiento (lo más urgente arriba, lo que no vence al final) y después
+    // lo saldado, de lo más reciente a lo más viejo.
+    data.sort((a, b) => {
+        if (a.estado !== b.estado) return a.estado === "pendiente" ? -1 : 1;
+        if (a.estado === "pendiente") {
+            if (!a.vence) return 1;
+            if (!b.vence) return -1;
+            return a.vence < b.vence ? -1 : a.vence > b.vence ? 1 : 0;
+        }
+        return (b.fecha_pago || "") < (a.fecha_pago || "") ? -1 : 1;
+    });
 
     pintarTotales(data);
 
@@ -518,9 +570,16 @@ async function pintarPedidos() {
                         <label class="item ${i.recibido ? "listo" : ""}">
                             <input type="checkbox" data-item="${i.id}" ${i.recibido ? "checked" : ""}>
                             <span class="item-nombre">${esc(i.material)}</span>
-                            <span class="item-cant">${Number(i.cantidad)} ${esc(i.unidad)}</span>
-                            <span class="item-precio">${i.precio_unitario ? plata(i.precio_unitario * i.cantidad, "ARS") : ""}</span>
-                            <button class="btn btn-icono" data-borrar-item="${i.id}" aria-label="Quitar ${esc(i.material)}">&times;</button>
+                            <!-- Cantidad y precio van en un solo elemento para
+                                 que en el teléfono bajen juntos al renglón de
+                                 abajo, en vez de partirse en dos columnas que
+                                 dejan el nombre en tiras de tres letras. -->
+                            <span class="item-detalle">${Number(i.cantidad)} ${esc(i.unidad)}${
+                                i.precio_unitario ? " · " + plata(i.precio_unitario * i.cantidad, "ARS") : ""
+                            }</span>
+                            <button class="btn btn-icono" data-borrar-item="${i.id}"
+                                    data-material="${esc(i.material)}"
+                                    aria-label="Quitar ${esc(i.material)}">&times;</button>
                         </label>`).join("")}
 
                     <form class="item-alta" data-alta-item="${p.id}">
@@ -576,9 +635,25 @@ $(".contenido").addEventListener("click", async (ev) => {
         // el click llegaría también al checkbox y marcaría el material justo
         // antes de borrarlo.
         ev.preventDefault();
+        // Con el dedo, la cruz queda a un centímetro del casillero de
+        // "recibido", y un toque de más borraba un renglón del pedido sin
+        // avisar ni dejar forma de recuperarlo.
+        if (!confirm(`¿Quitar "${borrarItem.dataset.material}" del pedido?`)) return;
         const { error } = await db.from("pedido_items").delete().eq("id", borrarItem.dataset.borrarItem);
         if (error) return fallo(error, "quitar el material");
         return pintarPedidos();
+    }
+
+    const marcarHecho = ev.target.closest("[data-hecho]");
+    if (marcarHecho) {
+        // Dar por terminado un trabajo es lo que más se hace en el día. Que
+        // exija abrir el formulario, cambiar un desplegable y guardar es mucho
+        // trámite, sobre todo en la obra y con una mano sola.
+        const { error } = await db.from("agenda")
+            .update({ estado: marcarHecho.dataset.estado === "hecho" ? "pendiente" : "hecho" })
+            .eq("id", marcarHecho.dataset.hecho);
+        if (error) return fallo(error, "cambiar el estado");
+        return pintarAgenda();
     }
 });
 
@@ -780,11 +855,24 @@ async function guardarModal() {
 
     const { def, id, clave } = modalActual;
     const datos = {};
+    const err = $("#modal-error");
 
     for (const c of def.campos) {
         const el = form.elements[c.n];
         if (!el) continue;
         const bruto = typeof el.value === "string" ? el.value.trim() : el.value;
+
+        // El `required` del navegador da por lleno un campo con espacios, pero
+        // al recortarlos queda vacío y la base lo rechaza. Se avisa acá, en
+        // castellano y señalando el campo, en vez de dejar que vuelva un error
+        // de Postgres que el cliente no puede interpretar.
+        if (c.req && bruto === "") {
+            err.textContent = `Falta completar ${NOMBRES[c.n] || c.e.toLowerCase()}.`;
+            err.hidden = false;
+            el.value = "";
+            el.focus();
+            return;
+        }
 
         // Un campo vacío va como NULL, no como cadena vacía: Postgres rechaza
         // "" en columnas date, time y uuid, y un texto vacío guardado como ""
@@ -802,8 +890,8 @@ async function guardarModal() {
     boton.disabled = false;
 
     if (error) {
-        const err = $("#modal-error");
-        err.textContent = error.message;
+        console.error("guardar", error);
+        err.textContent = mensajeDeError(error);
         err.hidden = false;
         return;
     }

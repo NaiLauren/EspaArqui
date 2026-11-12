@@ -302,26 +302,56 @@ textarea { resize: vertical; min-height: 70px; }
    casilla. */
 .dia-hueco { flex: 1; min-height: 1.5rem; cursor: pointer; border: none; background: none; }
 
+/* La ficha son dos botones: el cuerpo abre el formulario y el tilde da por
+   hecho el trabajo sin abrir nada. Por eso el contenedor es un div y es él
+   quien dibuja el recuadro. */
 .evento {
-    text-align: left;
-    width: 100%;
-    font-family: var(--fuente);
-    font-size: 0.8rem;
-    padding: 0.4rem 0.5rem;
+    display: flex;
+    align-items: stretch;
     border-radius: 6px;
     border: 1px solid var(--linea);
     border-left: 3px solid var(--gris);
     background: var(--papel);
-    cursor: pointer;
-    display: block;
+    overflow: hidden;
 }
 
 .evento:hover { border-color: var(--negro); }
 .evento.reunion { border-left-color: var(--negro); background: #F3F1EE; }
 .evento.trabajo { border-left-color: var(--beige); }
-.evento.hecho { opacity: 0.5; }
+
+.evento-cuerpo {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    font-family: var(--fuente);
+    font-size: 0.8rem;
+    color: inherit;
+    padding: 0.4rem 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.evento-tilde {
+    flex: 0 0 auto;
+    width: 2.25rem;
+    border: none;
+    border-left: 1px solid var(--linea);
+    background: none;
+    /* Apagado mientras está pendiente: se ve que el tilde está, pero no
+       compite con el título. Al marcarlo hecho se enciende en verde. */
+    color: #CFCAC4;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.evento-tilde:hover { background: var(--fondo); color: var(--gris); }
+
+.evento.hecho .evento-cuerpo { opacity: 0.45; }
 .evento.hecho .evento-titulo { text-decoration: line-through; }
-.evento.cancelado { opacity: 0.4; }
+.evento.hecho .evento-tilde { color: var(--ok); background: var(--ok-suave); }
+.evento.cancelado .evento-cuerpo { opacity: 0.4; }
 .evento.cancelado .evento-titulo { text-decoration: line-through; }
 
 .evento-hora { font-size: 0.7rem; color: var(--gris); font-weight: 600; }
@@ -437,11 +467,15 @@ textarea { resize: vertical; min-height: 70px; }
     font-size: 0.88rem;
 }
 
-.item input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
+.item input[type="checkbox"] { width: 1.15rem; height: 1.15rem; margin: 0; cursor: pointer; flex: none; }
 .item.listo .item-nombre { text-decoration: line-through; color: var(--gris); }
-.item-nombre { flex: 1; }
-.item-cant { color: var(--gris); font-size: 0.82rem; white-space: nowrap; }
-.item-precio { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item-nombre { flex: 1; min-width: 0; }
+.item-detalle {
+    color: var(--gris);
+    font-size: 0.82rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
 
 .item-alta { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
 .item-alta input { width: auto; flex: 1; min-width: 110px; font-size: 0.85rem; padding: 0.4rem 0.5rem; }
@@ -522,7 +556,12 @@ textarea { resize: vertical; min-height: 70px; }
    semana pasa a lista vertical: se pierde el golpe de vista, pero se puede
    leer, que es lo que importa en una tablet o en el teléfono en la obra. */
 @media (max-width: 1100px) {
-    .agenda-layout { grid-template-columns: 1fr; }
+    /* De grilla a columna, y los pendientes pasan ARRIBA de la semana. En el
+       escritorio están al costado y se ven de entrada; apilados quedaban
+       detrás de los siete días, o sea a una pantalla y media de scroll. Son
+       pocos y son lo que hay que resolver, así que van primero. */
+    .agenda-layout { display: flex; flex-direction: column; }
+    .panel-lateral { order: -1; }
 
     .semana { grid-template-columns: 1fr; }
     .dia { min-height: auto; }
@@ -549,5 +588,40 @@ textarea { resize: vertical; min-height: 70px; }
     .marca-chica { order: 1; }
     .barra .btn-fantasma { order: 2; margin-left: auto; }
     .nav { order: 3; width: 100%; justify-content: space-between; }
-    .nav-item { padding: 0.35rem 0.5rem; }
+    .nav-item { padding: 0.45rem 0.5rem; }
+
+    /* iOS hace zoom al enfocar un campo cuyo texto mida menos de 16px, y
+       después deja la página corrida y agrandada. Subir los campos a 16px lo
+       evita; es la única razón por la que este tamaño está acá. */
+    input, select, textarea { font-size: 16px; }
+
+    /* Con el dedo hace falta más superficie que con el mouse. 40px es el
+       mínimo cómodo para no errarle a un botón yendo en el auto o en la obra. */
+    .btn { min-height: 40px; }
+    .btn-icono { min-width: 40px; }
+
+    /* Cuatro tarjetas apiladas se comían la pantalla entera antes de mostrar
+       un solo pago. En dos columnas entran todas de un vistazo. */
+    .totales { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .total { padding: 0.7rem 0.75rem; }
+    .total-etiqueta { font-size: 0.68rem; }
+    .total-valor { font-size: 1.1rem; }
+
+    /* Los cuatro filtros entran en un renglón si se achica el relleno. */
+    .filtros { gap: 0.3rem; }
+    .chip { padding: 0.45rem 0.6rem; font-size: 0.8rem; }
+
+    /* El material ocupa el ancho y la cantidad con el precio bajan al renglón
+       siguiente, alineados con el texto. Antes compartían fila y el nombre
+       terminaba partido en tiras de tres letras. */
+    .item { flex-wrap: wrap; row-gap: 0.1rem; padding: 0.45rem 0; }
+    .item-nombre { flex: 1 1 auto; order: 1; }
+    .item [data-borrar-item] { order: 2; }
+    .item-detalle { order: 3; flex: 1 0 100%; padding-left: 1.75rem; }
+
+    .item-alta input { font-size: 16px; }
+
+    /* Arriba y no abajo: en el teléfono el aviso aparecía justo sobre lo que
+       se acababa de cargar, tapándolo. */
+    .aviso { top: 5.5rem; bottom: auto; }
 }

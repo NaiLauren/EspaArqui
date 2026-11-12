@@ -12,6 +12,19 @@
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%23111'/><text x='50' y='68' font-size='55' font-family='Inter,sans-serif' font-weight='800' fill='%23DFD1C4' text-anchor='middle'>EA</text></svg>">
 
+    <!-- Con esto el panel se agrega a la pantalla de inicio del teléfono y se
+         abre sin barra de direcciones, como una aplicación. No lo vuelve una
+         app nativa ni lo hace andar sin señal: sigue siendo la misma página,
+         pero deja de parecer "una web abierta en el navegador", que es como lo
+         va a usar el estudio todos los días.
+         Android toma el manifest; iOS necesita ademas las etiquetas apple-. -->
+    <link rel="manifest" href="/control/manifest.webmanifest">
+    <meta name="theme-color" content="#111111">
+    <link rel="apple-touch-icon" href="/control/iconos/icono-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="EA Panel">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
