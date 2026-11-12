@@ -1,0 +1,553 @@
+/* Panel de control de Espacio Arquitectura.
+   Hoja aparte de la web pública: comparte la paleta y la tipografía, pero no
+   los estilos. La web es una pieza de presentación con animaciones de scroll;
+   esto es una herramienta de trabajo que alguien mira diez veces por día, así
+   que prioriza densidad y lectura rápida por encima del efecto. */
+
+:root {
+    --negro: #111111;
+    --blanco: #FCFCFC;
+    --beige: #DFD1C4;
+    --gris: #888888;
+
+    --linea: #E4E0DB;
+    --fondo: #F4F2EF;
+    --papel: #FFFFFF;
+
+    /* Semáforo de estados. Tonos apagados a propósito: en una pantalla que se
+       mira todo el día, el rojo saturado cansa y deja de llamar la atención
+       justo cuando hace falta. */
+    --ok: #2F6E4B;
+    --ok-suave: #E4F0E8;
+    --alerta: #9A5B14;
+    --alerta-suave: #FBEEDC;
+    --mal: #9B2F2F;
+    --mal-suave: #F7E5E5;
+
+    --fuente: 'Inter', system-ui, sans-serif;
+    --radio: 8px;
+    --sombra: 0 1px 2px rgba(17, 17, 17, 0.06), 0 4px 12px rgba(17, 17, 17, 0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--fuente);
+    background: var(--fondo);
+    color: var(--negro);
+    line-height: 1.5;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+}
+
+[hidden] { display: none !important; }
+
+/* --------------------------------------------------------------------------
+   Pantallas de entrada (configuración y login)
+   -------------------------------------------------------------------------- */
+
+.pantalla {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: var(--negro);
+}
+
+.caja {
+    background: var(--papel);
+    padding: 2.5rem;
+    border-radius: var(--radio);
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.caja-ancha { max-width: 520px; }
+
+.marca {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+}
+
+.caja h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.caja p { color: var(--gris); font-size: 0.9rem; }
+
+.pasos {
+    margin: 1rem 0 0 1.1rem;
+    font-size: 0.9rem;
+    color: var(--gris);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.nota { margin-top: 1rem; font-size: 0.85rem; }
+
+code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    background: var(--fondo);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    color: var(--negro);
+}
+
+/* --------------------------------------------------------------------------
+   Formularios
+   -------------------------------------------------------------------------- */
+
+label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gris);
+    margin-top: 0.75rem;
+}
+
+input, select, textarea {
+    font-family: var(--fuente);
+    font-size: 0.95rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--linea);
+    border-radius: var(--radio);
+    background: var(--papel);
+    color: var(--negro);
+    width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--negro);
+    outline-offset: -1px;
+    border-color: var(--negro);
+}
+
+textarea { resize: vertical; min-height: 70px; }
+
+.error {
+    color: var(--mal);
+    background: var(--mal-suave);
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radio);
+    margin-top: 0.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Botones
+   -------------------------------------------------------------------------- */
+
+.btn {
+    font-family: var(--fuente);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.55rem 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--radio);
+    cursor: pointer;
+    background: none;
+    color: var(--negro);
+    transition: background 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-primario { background: var(--negro); color: var(--blanco); margin-top: 1.25rem; }
+.btn-primario:hover { background: #2a2a2a; }
+
+/* En las cabeceras el botón primario va alineado con el título, sin el margen
+   que necesita al cerrar un formulario. */
+.vista-cabecera .btn-primario, .modal-pie .btn-primario { margin-top: 0; }
+
+.btn-fantasma { border-color: var(--linea); background: var(--papel); }
+.btn-fantasma:hover { border-color: var(--negro); }
+
+.btn-peligro { color: var(--mal); border-color: var(--linea); background: var(--papel); }
+.btn-peligro:hover { background: var(--mal-suave); border-color: var(--mal); }
+
+.btn-icono {
+    padding: 0.35rem 0.6rem;
+    font-size: 1.1rem;
+    line-height: 1;
+    border-color: var(--linea);
+    background: var(--papel);
+}
+.btn-icono:hover { border-color: var(--negro); }
+
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+/* --------------------------------------------------------------------------
+   Barra superior
+   -------------------------------------------------------------------------- */
+
+.barra {
+    background: var(--negro);
+    color: var(--blanco);
+    padding: 0.6rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-wrap: wrap;
+}
+
+.barra-izq, .barra-der { display: flex; align-items: center; gap: 1rem; }
+
+.marca-chica {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--beige);
+    letter-spacing: -0.02em;
+}
+
+.nav { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+
+.nav-item {
+    font-family: var(--fuente);
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--gris);
+    background: none;
+    border: none;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radio);
+    cursor: pointer;
+}
+
+.nav-item:hover { color: var(--blanco); }
+.nav-item.activo { color: var(--negro); background: var(--beige); font-weight: 600; }
+
+.usuario { font-size: 0.85rem; color: var(--gris); }
+
+.barra .btn-fantasma {
+    background: none;
+    color: var(--blanco);
+    border-color: #333;
+}
+.barra .btn-fantasma:hover { border-color: var(--beige); }
+
+/* --------------------------------------------------------------------------
+   Contenido
+   -------------------------------------------------------------------------- */
+
+.contenido { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+.vista-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.vista-cabecera h2 { font-size: 1.3rem; font-weight: 600; }
+
+.semana-nav { display: flex; align-items: center; gap: 0.5rem; }
+.semana-nav h2 { font-size: 1.1rem; font-weight: 600; min-width: 13rem; }
+
+/* --------------------------------------------------------------------------
+   Agenda
+   -------------------------------------------------------------------------- */
+
+.agenda-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.semana {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--linea);
+    border: 1px solid var(--linea);
+    border-radius: var(--radio);
+    overflow: hidden;
+}
+
+.dia {
+    background: var(--papel);
+    min-height: 190px;
+    padding: 0.6rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+/* El fin de semana se apaga para que la semana laboral salte a la vista. */
+.dia.finde { background: #FAF9F7; }
+
+.dia.hoy { background: var(--beige); }
+
+.dia-cabecera { display: flex; align-items: baseline; justify-content: space-between; }
+.dia-nombre { font-size: 0.75rem; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.04em; }
+.dia.hoy .dia-nombre { color: var(--negro); }
+.dia-numero { font-size: 1rem; font-weight: 600; }
+
+/* Botón invisible que ocupa el resto del día: hace que todo el hueco libre
+   sea clickeable para crear algo en esa fecha, sin dibujar un "+" en cada
+   casilla. */
+.dia-hueco { flex: 1; min-height: 1.5rem; cursor: pointer; border: none; background: none; }
+
+.evento {
+    text-align: left;
+    width: 100%;
+    font-family: var(--fuente);
+    font-size: 0.8rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--linea);
+    border-left: 3px solid var(--gris);
+    background: var(--papel);
+    cursor: pointer;
+    display: block;
+}
+
+.evento:hover { border-color: var(--negro); }
+.evento.reunion { border-left-color: var(--negro); background: #F3F1EE; }
+.evento.trabajo { border-left-color: var(--beige); }
+.evento.hecho { opacity: 0.5; }
+.evento.hecho .evento-titulo { text-decoration: line-through; }
+.evento.cancelado { opacity: 0.4; }
+.evento.cancelado .evento-titulo { text-decoration: line-through; }
+
+.evento-hora { font-size: 0.7rem; color: var(--gris); font-weight: 600; }
+.evento-titulo { font-weight: 600; line-height: 1.3; word-break: break-word; }
+/* La hora queda en el mismo renglón del título, como en cualquier calendario;
+   la obra baja a su propia línea para no leerse pegada al título. */
+.evento-obra { font-size: 0.7rem; color: var(--gris); display: block; }
+
+.panel-lateral {
+    background: var(--papel);
+    border: 1px solid var(--linea);
+    border-radius: var(--radio);
+    padding: 1rem;
+}
+
+.panel-lateral h3 { font-size: 0.95rem; font-weight: 600; }
+.panel-lateral .sub { font-size: 0.8rem; color: var(--gris); margin-bottom: 0.75rem; }
+.panel-lateral .evento { margin-bottom: 0.4rem; }
+
+/* Acá el encabezado no es una hora sino "Sin fecha" o "Venció el 9 nov", que
+   pegado al título se lee como una sola frase. Va en su propio renglón. */
+.panel-lateral .evento-hora { display: block; }
+
+.evento.atrasado { border-left-color: var(--mal); }
+.evento.atrasado .evento-hora { color: var(--mal); }
+
+/* --------------------------------------------------------------------------
+   Totales y filtros
+   -------------------------------------------------------------------------- */
+
+.totales {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.total {
+    background: var(--papel);
+    border: 1px solid var(--linea);
+    border-radius: var(--radio);
+    padding: 0.9rem 1rem;
+}
+
+.total-etiqueta { font-size: 0.75rem; color: var(--gris); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.total-valor { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; margin-top: 0.2rem; }
+.total.rojo .total-valor { color: var(--mal); }
+.total.verde .total-valor { color: var(--ok); }
+
+.filtros { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap; }
+
+.chip {
+    font-family: var(--fuente);
+    font-size: 0.85rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--linea);
+    border-radius: 100px;
+    background: var(--papel);
+    cursor: pointer;
+    color: var(--gris);
+}
+
+.chip:hover { border-color: var(--negro); color: var(--negro); }
+.chip-activo { background: var(--negro); color: var(--blanco); border-color: var(--negro); }
+
+/* --------------------------------------------------------------------------
+   Fichas de lista (pagos, pedidos, obras)
+   -------------------------------------------------------------------------- */
+
+.ficha {
+    background: var(--papel);
+    border: 1px solid var(--linea);
+    border-radius: var(--radio);
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.ficha-cuerpo { flex: 1; min-width: 180px; }
+.ficha-titulo { font-weight: 600; }
+.ficha-sub { font-size: 0.82rem; color: var(--gris); }
+.ficha-monto { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.ficha-acciones { display: flex; gap: 0.4rem; }
+
+.etiqueta {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 100px;
+    white-space: nowrap;
+}
+
+.etiqueta.ok { background: var(--ok-suave); color: var(--ok); }
+.etiqueta.alerta { background: var(--alerta-suave); color: var(--alerta); }
+.etiqueta.mal { background: var(--mal-suave); color: var(--mal); }
+.etiqueta.neutro { background: var(--fondo); color: var(--gris); }
+
+/* Pedidos: la ficha se abre para mostrar los materiales. */
+.pedido { display: block; }
+.pedido-cabecera { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.pedido-items { margin-top: 0.75rem; border-top: 1px solid var(--linea); padding-top: 0.6rem; }
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+    font-size: 0.88rem;
+}
+
+.item input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
+.item.listo .item-nombre { text-decoration: line-through; color: var(--gris); }
+.item-nombre { flex: 1; }
+.item-cant { color: var(--gris); font-size: 0.82rem; white-space: nowrap; }
+.item-precio { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.item-alta { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
+.item-alta input { width: auto; flex: 1; min-width: 110px; font-size: 0.85rem; padding: 0.4rem 0.5rem; }
+.item-alta input.chico { flex: 0 0 80px; min-width: 70px; }
+.item-alta .btn { margin-top: 0; padding: 0.4rem 0.8rem; }
+
+.vacio {
+    text-align: center;
+    color: var(--gris);
+    padding: 2.5rem 1rem;
+    background: var(--papel);
+    border: 1px dashed var(--linea);
+    border-radius: var(--radio);
+    font-size: 0.9rem;
+}
+
+/* --------------------------------------------------------------------------
+   Modal
+   -------------------------------------------------------------------------- */
+
+.modal-fondo {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 17, 17, 0.5);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    z-index: 100;
+    overflow-y: auto;
+}
+
+.modal {
+    background: var(--papel);
+    border-radius: var(--radio);
+    width: 100%;
+    max-width: 440px;
+    padding: 1.5rem;
+    box-shadow: var(--sombra);
+}
+
+.modal-cabecera { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.modal-cabecera h2 { font-size: 1.1rem; font-weight: 600; }
+
+.modal-pie { display: flex; gap: 0.5rem; margin-top: 1.5rem; align-items: center; }
+.espaciador { flex: 1; }
+
+/* Dos campos cortos (fecha y hora, cantidad y unidad) comparten renglón. */
+.fila { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.fila label { margin-top: 0.75rem; }
+
+/* --------------------------------------------------------------------------
+   Aviso flotante
+   -------------------------------------------------------------------------- */
+
+.aviso {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--negro);
+    color: var(--blanco);
+    padding: 0.6rem 1.1rem;
+    border-radius: 100px;
+    font-size: 0.88rem;
+    z-index: 200;
+    box-shadow: var(--sombra);
+}
+
+.aviso.mal { background: var(--mal); }
+
+/* --------------------------------------------------------------------------
+   Pantallas chicas
+   -------------------------------------------------------------------------- */
+
+/* Siete columnas necesitan ancho real. Por debajo de ~1100px cada día queda
+   tan angosto que los títulos se parten en pedazos de tres letras, así que la
+   semana pasa a lista vertical: se pierde el golpe de vista, pero se puede
+   leer, que es lo que importa en una tablet o en el teléfono en la obra. */
+@media (max-width: 1100px) {
+    .agenda-layout { grid-template-columns: 1fr; }
+
+    .semana { grid-template-columns: 1fr; }
+    .dia { min-height: auto; }
+    .dia-hueco { min-height: 0.5rem; }
+    .dia-cabecera { gap: 0.5rem; justify-content: flex-start; }
+}
+
+@media (max-width: 760px) {
+    .contenido { padding: 1rem; }
+    .barra { padding: 0.6rem 1rem; }
+
+    .semana-nav h2 { min-width: auto; font-size: 1rem; }
+    .vista-cabecera { gap: 0.75rem; }
+
+    /* Cuatro secciones más el botón de salir no entran en un renglón de 375px,
+       y al partirse quedaba "Obras" colgando sola debajo. En vez de pelear con
+       el envoltorio, la barra pasa a dos renglones a propósito: arriba el logo
+       y Salir, abajo la navegación ocupando todo el ancho.
+       `display: contents` disuelve los dos agrupadores para poder ordenar sus
+       hijos como si fueran hijos directos de la barra. */
+    .usuario { display: none; }
+    .barra-izq, .barra-der { display: contents; }
+    .barra { gap: 0.5rem 0.75rem; }
+    .marca-chica { order: 1; }
+    .barra .btn-fantasma { order: 2; margin-left: auto; }
+    .nav { order: 3; width: 100%; justify-content: space-between; }
+    .nav-item { padding: 0.35rem 0.5rem; }
+}

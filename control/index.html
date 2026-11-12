@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel · Espacio Arquitectura</title>
+
+    <!-- Panel interno: no queremos que aparezca en Google al lado de la web
+         del estudio. El noindex no es seguridad (los datos los protege RLS en
+         la base), es higiene: evita que la pantalla de login se indexe. -->
+    <meta name="robots" content="noindex, nofollow">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%23111'/><text x='50' y='68' font-size='55' font-family='Inter,sans-serif' font-weight='800' fill='%23DFD1C4' text-anchor='middle'>EA</text></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="control.css">
+</head>
+<body>
+
+<!-- Pantalla 1: falta configurar las credenciales de Supabase.
+     Sin esto el panel no tiene a dónde pedirle los datos, así que en vez de
+     fallar con un error en consola lo dice en castellano. -->
+<section id="pantalla-config" class="pantalla" hidden>
+    <div class="caja caja-ancha">
+        <h1 class="marca">EA</h1>
+        <h2>Falta conectar la base</h2>
+        <p>El panel está desplegado pero todavía no sabe a qué proyecto de Supabase hablarle.</p>
+        <ol class="pasos">
+            <li>Crear un proyecto en Supabase.</li>
+            <li>Correr <code>supabase/migrations/20261112_control_inicial.sql</code> en el editor SQL.</li>
+            <li>Copiar la URL del proyecto y la clave pública en <code>control/config.js</code>.</li>
+        </ol>
+        <p class="nota">Los pasos completos están en <code>control/README.md</code>.</p>
+    </div>
+</section>
+
+<!-- Pantalla 2: login -->
+<section id="pantalla-login" class="pantalla" hidden>
+    <form class="caja" id="form-login" autocomplete="on">
+        <h1 class="marca">EA</h1>
+        <h2>Panel del estudio</h2>
+
+        <label for="login-email">Correo</label>
+        <input type="email" id="login-email" name="email" required autocomplete="username">
+
+        <label for="login-pass">Contraseña</label>
+        <input type="password" id="login-pass" name="password" required autocomplete="current-password">
+
+        <button type="submit" class="btn btn-primario" id="btn-entrar">Entrar</button>
+        <p class="error" id="login-error" role="alert" hidden></p>
+    </form>
+</section>
+
+<!-- Pantalla 3: el panel -->
+<div id="app" hidden>
+    <header class="barra">
+        <div class="barra-izq">
+            <span class="marca-chica">EA</span>
+            <nav class="nav" id="nav">
+                <button class="nav-item" data-vista="agenda">Agenda</button>
+                <button class="nav-item" data-vista="pagos">Pagos</button>
+                <button class="nav-item" data-vista="materiales">Materiales</button>
+                <button class="nav-item" data-vista="obras">Obras</button>
+            </nav>
+        </div>
+        <div class="barra-der">
+            <span class="usuario" id="usuario"></span>
+            <button class="btn btn-fantasma" id="btn-salir">Salir</button>
+        </div>
+    </header>
+
+    <main class="contenido">
+
+        <!-- Agenda ------------------------------------------------------- -->
+        <section class="vista" id="vista-agenda" hidden>
+            <div class="vista-cabecera">
+                <div class="semana-nav">
+                    <button class="btn btn-icono" id="semana-ant" aria-label="Semana anterior">&larr;</button>
+                    <h2 id="semana-titulo">Semana</h2>
+                    <button class="btn btn-icono" id="semana-sig" aria-label="Semana siguiente">&rarr;</button>
+                    <button class="btn btn-fantasma" id="semana-hoy">Hoy</button>
+                </div>
+                <button class="btn btn-primario" data-nuevo="agenda">+ Nuevo</button>
+            </div>
+
+            <div class="agenda-layout">
+                <div class="semana" id="semana"></div>
+
+                <aside class="panel-lateral">
+                    <h3>Trabajos pendientes</h3>
+                    <p class="sub">Sin fecha o ya vencidos.</p>
+                    <div id="pendientes"></div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- Pagos -------------------------------------------------------- -->
+        <section class="vista" id="vista-pagos" hidden>
+            <div class="vista-cabecera">
+                <h2>Pagos</h2>
+                <button class="btn btn-primario" data-nuevo="pago">+ Nuevo</button>
+            </div>
+
+            <div class="totales" id="totales-pagos"></div>
+
+            <div class="filtros" id="filtros-pagos">
+                <button class="chip chip-activo" data-filtro="todos">Todos</button>
+                <button class="chip" data-filtro="pendiente">Pendientes</button>
+                <button class="chip" data-filtro="vencido">Vencidos</button>
+                <button class="chip" data-filtro="pagado">Pagados</button>
+            </div>
+
+            <div id="lista-pagos"></div>
+        </section>
+
+        <!-- Materiales --------------------------------------------------- -->
+        <section class="vista" id="vista-materiales" hidden>
+            <div class="vista-cabecera">
+                <h2>Pedidos de materiales</h2>
+                <button class="btn btn-primario" data-nuevo="pedido">+ Nuevo</button>
+            </div>
+            <div id="lista-pedidos"></div>
+        </section>
+
+        <!-- Obras -------------------------------------------------------- -->
+        <section class="vista" id="vista-obras" hidden>
+            <div class="vista-cabecera">
+                <h2>Obras</h2>
+                <button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>
+            </div>
+            <div id="lista-obras"></div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Modal de alta y edición. El formulario se arma desde JS según qué se esté
+     cargando, así no hay cuatro modales casi iguales en el HTML. -->
+<div class="modal-fondo" id="modal-fondo" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+        <div class="modal-cabecera">
+            <h2 id="modal-titulo"></h2>
+            <button class="btn btn-icono" id="modal-cerrar" aria-label="Cerrar">&times;</button>
+        </div>
+        <form id="modal-form"></form>
+        <p class="error" id="modal-error" role="alert" hidden></p>
+        <div class="modal-pie">
+            <button class="btn btn-peligro" id="modal-borrar" hidden>Borrar</button>
+            <span class="espaciador"></span>
+            <button class="btn btn-fantasma" id="modal-cancelar">Cancelar</button>
+            <button class="btn btn-primario" id="modal-guardar">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<div class="aviso" id="aviso" hidden role="status"></div>
+
+<script type="module" src="control.js"></script>
+</body>
+</html>
