@@ -287,7 +287,7 @@ function muestra(tipo, texto) {
     }
 
     if (tipo === "texto" && /c[oó]mo|\?/i.test(texto)) {
-        return { ...base, tipo: "respuesta", respuesta: 'En "Plata", tocá el círculo del movimiento: queda marcado como cobrado con la fecha de hoy.' };
+        return { ...base, tipo: "respuesta", respuesta: 'En "Pagos", tocá el círculo del movimiento: queda marcado como cobrado con la fecha de hoy.' };
     }
 
     if (tipo === "texto" && /deb|pag|cobr|mil|\$/i.test(texto)) {

@@ -1,7 +1,7 @@
 # Panel de control — Espacio Arquitectura
 
 Panel de control personal del estudio, servido como `/control` dentro del mismo
-sitio. Abre en "Hoy" y tiene agenda semanal, plata (cobros y gastos), pedidos a
+sitio. Abre en "Hoy" y tiene agenda semanal, pagos (cobros y gastos), pedidos a
 proveedores y obras, más un asistente con IA que recibe texto, audio o foto.
 
 El estado, lo verificado y lo que falta están en `PENDIENTES.md`.
@@ -107,7 +107,7 @@ base, `trabajo`), y una `fecha` vacía es una tarea pendiente todavía sin día.
 "Pendientes" junta lo que no tiene fecha y lo que ya venció. El "+" de cada día
 carga algo en esa fecha; tocar un renglón lo abre para editarlo.
 
-**Plata.** Registro interno: se anota lo que se cobró y lo que falta cobrar,
+**Pagos.** Registro interno: se anota lo que se cobró y lo que falta cobrar,
 acá no se cobra nada. Los totales se calculan por moneda, porque sumar pesos
 con dólares daría un número sin sentido. El círculo de cada movimiento lo marca
 como cobrado o pagado con la fecha de hoy; otro toque lo deshace.

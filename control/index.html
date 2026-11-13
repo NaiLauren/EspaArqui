@@ -79,7 +79,7 @@
         <nav class="nav" id="nav" aria-label="Secciones">
             <button class="nav-item" data-vista="hoy"><span data-ico="sol"></span><span>Hoy</span></button>
             <button class="nav-item" data-vista="agenda"><span data-ico="calendario"></span><span>Agenda</span></button>
-            <button class="nav-item" data-vista="plata"><span data-ico="plata"></span><span>Plata</span></button>
+            <button class="nav-item" data-vista="pagos"><span data-ico="plata"></span><span>Pagos</span></button>
             <button class="nav-item" data-vista="pedidos"><span data-ico="paquete"></span><span>Pedidos</span></button>
         </nav>
 
@@ -118,23 +118,23 @@
             </div>
         </section>
 
-        <!-- Plata -------------------------------------------------------- -->
-        <section class="vista" id="vista-plata" hidden>
+        <!-- Pagos -------------------------------------------------------- -->
+        <section class="vista" id="vista-pagos" hidden>
             <div class="vista-cabecera">
-                <h2>Plata</h2>
+                <h2>Pagos</h2>
                 <button class="btn btn-primario" data-nuevo="pago">+ Nuevo</button>
             </div>
 
-            <div class="totales" id="totales-plata"></div>
+            <div class="totales" id="totales-pagos"></div>
 
-            <div class="filtros" id="filtros-plata">
+            <div class="filtros" id="filtros-pagos">
                 <button class="chip chip-activo" data-filtro="todos">Todos</button>
                 <button class="chip" data-filtro="pendiente">Pendientes</button>
                 <button class="chip" data-filtro="vencido">Vencidos</button>
                 <button class="chip" data-filtro="pagado">Pagados</button>
             </div>
 
-            <div id="lista-plata"></div>
+            <div id="lista-pagos"></div>
         </section>
 
         <!-- Pedidos ------------------------------------------------------ -->

@@ -1107,7 +1107,7 @@ button.total:active { transform: scale(0.98); }
    angosto que los títulos se parten, así que se queda en lista. */
 @media (min-width: 1320px) {
     .contenido { max-width: 1560px; }
-    #vista-hoy, #vista-plata, #vista-pedidos, #vista-obras { max-width: 860px; margin: 0 auto; }
+    #vista-hoy, #vista-pagos, #vista-pedidos, #vista-obras { max-width: 860px; margin: 0 auto; }
 
     .agenda-layout { display: grid; grid-template-columns: 1fr 300px; align-items: start; }
     .panel-lateral { order: 0; }
