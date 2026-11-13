@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Panel · Espacio Arquitectura</title>
 
     <!-- Panel interno: no queremos que aparezca en Google al lado de la web
@@ -14,10 +14,8 @@
 
     <!-- Con esto el panel se agrega a la pantalla de inicio del teléfono y se
          abre sin barra de direcciones, como una aplicación. No lo vuelve una
-         app nativa ni lo hace andar sin señal: sigue siendo la misma página,
-         pero deja de parecer "una web abierta en el navegador", que es como lo
-         va a usar el estudio todos los días.
-         Android toma el manifest; iOS necesita ademas las etiquetas apple-. -->
+         app nativa ni lo hace andar sin señal: sigue siendo la misma página.
+         Android toma el manifest; iOS necesita además las etiquetas apple-. -->
     <link rel="manifest" href="/control/manifest.webmanifest">
     <meta name="theme-color" content="#111111">
     <link rel="apple-touch-icon" href="/control/iconos/icono-192.png">
@@ -27,7 +25,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
     <!-- Las rutas van absolutas a propósito. Vercel sirve esta página tanto en
          /control como en /control/, y sin la barra final el navegador resuelve
@@ -39,9 +37,7 @@
 </head>
 <body>
 
-<!-- Pantalla 1: falta configurar las credenciales de Supabase.
-     Sin esto el panel no tiene a dónde pedirle los datos, así que en vez de
-     fallar con un error en consola lo dice en castellano. -->
+<!-- Pantalla 1: falta configurar las credenciales de Supabase. -->
 <section id="pantalla-config" class="pantalla" hidden>
     <div class="caja caja-ancha">
         <h1 class="marca">EA</h1>
@@ -49,7 +45,7 @@
         <p>El panel está desplegado pero todavía no sabe a qué proyecto de Supabase hablarle.</p>
         <ol class="pasos">
             <li>Crear un proyecto en Supabase.</li>
-            <li>Correr <code>supabase/migrations/20261112000000_control_inicial.sql</code> en el editor SQL.</li>
+            <li>Correr las migraciones de <code>supabase/migrations/</code> en el editor SQL.</li>
             <li>Copiar la URL del proyecto y la clave pública en <code>control/config.js</code>.</li>
         </ol>
         <p class="nota">Los pasos completos están en <code>control/README.md</code>.</p>
@@ -60,7 +56,7 @@
 <section id="pantalla-login" class="pantalla" hidden>
     <form class="caja" id="form-login" autocomplete="on">
         <h1 class="marca">EA</h1>
-        <h2>Panel del estudio</h2>
+        <h2>Tu panel</h2>
 
         <label for="login-email">Correo</label>
         <input type="email" id="login-email" name="email" required autocomplete="username">
@@ -76,30 +72,36 @@
 <!-- Pantalla 3: el panel -->
 <div id="app" hidden>
     <header class="barra">
-        <div class="barra-izq">
-            <span class="marca-chica">EA</span>
-            <nav class="nav" id="nav">
-                <button class="nav-item" data-vista="agenda">Agenda</button>
-                <button class="nav-item" data-vista="pagos">Pagos</button>
-                <button class="nav-item" data-vista="materiales">Materiales</button>
-                <button class="nav-item" data-vista="obras">Obras</button>
-            </nav>
-        </div>
+        <span class="marca-chica">EA</span>
+
+        <!-- En el teléfono esta navegación va fija abajo, al alcance del
+             pulgar; en la computadora queda arriba, dentro de la barra. -->
+        <nav class="nav" id="nav" aria-label="Secciones">
+            <button class="nav-item" data-vista="hoy"><span data-ico="sol"></span><span>Hoy</span></button>
+            <button class="nav-item" data-vista="agenda"><span data-ico="calendario"></span><span>Agenda</span></button>
+            <button class="nav-item" data-vista="plata"><span data-ico="plata"></span><span>Plata</span></button>
+            <button class="nav-item" data-vista="pedidos"><span data-ico="paquete"></span><span>Pedidos</span></button>
+        </nav>
+
         <div class="barra-der">
             <span class="usuario" id="usuario"></span>
-            <button class="btn btn-fantasma" id="btn-salir">Salir</button>
+            <button class="btn-barra" id="btn-obras" data-ir="obras">Obras</button>
+            <button class="btn-barra" id="btn-salir">Salir</button>
         </div>
     </header>
 
     <main class="contenido">
 
+        <!-- Hoy: la pantalla de inicio. Se arma entera desde JS. -->
+        <section class="vista" id="vista-hoy" hidden></section>
+
         <!-- Agenda ------------------------------------------------------- -->
         <section class="vista" id="vista-agenda" hidden>
             <div class="vista-cabecera">
                 <div class="semana-nav">
-                    <button class="btn btn-icono" id="semana-ant" aria-label="Semana anterior">&larr;</button>
+                    <button class="btn btn-icono" id="semana-ant" aria-label="Semana anterior"><span data-ico="izquierda"></span></button>
                     <h2 id="semana-titulo">Semana</h2>
-                    <button class="btn btn-icono" id="semana-sig" aria-label="Semana siguiente">&rarr;</button>
+                    <button class="btn btn-icono" id="semana-sig" aria-label="Semana siguiente"><span data-ico="derecha"></span></button>
                     <button class="btn btn-fantasma" id="semana-hoy">Hoy</button>
                 </div>
                 <button class="btn btn-primario" data-nuevo="agenda">+ Nuevo</button>
@@ -109,41 +111,39 @@
                 <div class="semana" id="semana"></div>
 
                 <aside class="panel-lateral">
-                    <h3>Trabajos pendientes</h3>
-                    <p class="sub">Sin fecha o ya vencidos.</p>
+                    <h3>Pendientes</h3>
+                    <p class="sub">Sin fecha o atrasados.</p>
                     <div id="pendientes"></div>
                 </aside>
             </div>
         </section>
 
-        <!-- Pagos -------------------------------------------------------- -->
-        <section class="vista" id="vista-pagos" hidden>
+        <!-- Plata -------------------------------------------------------- -->
+        <section class="vista" id="vista-plata" hidden>
             <div class="vista-cabecera">
-                <h2>Pagos</h2>
+                <h2>Plata</h2>
                 <button class="btn btn-primario" data-nuevo="pago">+ Nuevo</button>
             </div>
 
-            <div class="totales" id="totales-pagos"></div>
+            <div class="totales" id="totales-plata"></div>
 
-            <div class="filtros" id="filtros-pagos">
+            <div class="filtros" id="filtros-plata">
                 <button class="chip chip-activo" data-filtro="todos">Todos</button>
                 <button class="chip" data-filtro="pendiente">Pendientes</button>
                 <button class="chip" data-filtro="vencido">Vencidos</button>
                 <button class="chip" data-filtro="pagado">Pagados</button>
             </div>
 
-            <div id="lista-pagos"></div>
+            <div id="lista-plata"></div>
         </section>
 
-        <!-- Materiales --------------------------------------------------- -->
-        <section class="vista" id="vista-materiales" hidden>
+        <!-- Pedidos ------------------------------------------------------ -->
+        <section class="vista" id="vista-pedidos" hidden>
             <div class="vista-cabecera">
-                <h2>Pedidos de materiales</h2>
+                <h2>Pedidos</h2>
                 <button class="btn btn-primario" data-nuevo="pedido">+ Nuevo</button>
             </div>
-            <div class="barra-herramientas">
-                <input type="search" id="buscar-pedidos" class="buscador" placeholder="Buscar por proveedor, obra, material o nota..." aria-label="Buscar pedidos">
-            </div>
+            <input type="search" id="buscar-pedidos" class="buscador" placeholder="Buscar por proveedor, obra, material o nota" aria-label="Buscar pedidos">
             <div id="lista-pedidos"></div>
         </section>
 
@@ -151,18 +151,60 @@
         <section class="vista" id="vista-obras" hidden>
             <div class="vista-cabecera">
                 <div class="obra-cabecera-izq">
-                    <button class="btn btn-fantasma" id="obra-volver" hidden>&larr; Todas las obras</button>
+                    <button class="btn btn-fantasma" id="obra-volver" hidden>&larr; Obras</button>
                     <h2 id="obras-titulo">Obras</h2>
                 </div>
-                <div class="obra-cabecera-der" id="obra-acciones">
-                    <button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>
-                </div>
+                <div class="obra-cabecera-der" id="obra-acciones"></div>
             </div>
             <div id="lista-obras"></div>
             <div id="detalle-obra" hidden></div>
         </section>
 
     </main>
+
+    <!-- Barra del asistente. Arranca oculta: aparece solo si el asistente está
+         activado para este panel (lo decide la base, ver asistente.js). -->
+    <div class="asis-barra" id="asis-barra" hidden>
+        <button class="asis-abrir" id="asis-abrir">
+            <span data-ico="chispa"></span>
+            <span>Decime o sacá una foto</span>
+        </button>
+        <button class="asis-redondo" id="asis-barra-foto" aria-label="Mandar una foto"><span data-ico="camara"></span></button>
+        <button class="asis-redondo claro" id="asis-barra-mic" aria-label="Grabar un audio"><span data-ico="mic"></span></button>
+    </div>
+</div>
+
+<!-- Asistente: hoja que sube desde abajo. Propone; nada se guarda sin tocar
+     el botón de la tarjeta. -->
+<div class="asis-fondo" id="asis-fondo" hidden>
+    <section class="asis" role="dialog" aria-modal="true" aria-labelledby="asis-titulo">
+        <header class="asis-cabecera">
+            <span class="asis-marca" data-ico="chispa"></span>
+            <h2 id="asis-titulo">Asistente</h2>
+            <span class="asis-uso" id="asis-uso"></span>
+            <button class="asis-cerrar" id="asis-cerrar" aria-label="Cerrar el asistente"><span data-ico="cerrar"></span></button>
+        </header>
+
+        <div class="asis-charla" id="asis-charla" aria-live="polite"></div>
+
+        <form class="asis-pie" id="asis-form">
+            <button type="button" class="asis-redondo suave" id="asis-foto" aria-label="Mandar una foto"><span data-ico="camara"></span></button>
+            <input type="text" id="asis-texto" placeholder="Escribí acá" autocomplete="off" enterkeyhint="send" maxlength="2000" aria-label="Mensaje para el asistente">
+            <button type="button" class="asis-redondo oscuro" id="asis-mic" aria-label="Grabar un audio"><span data-ico="mic"></span></button>
+            <button type="submit" class="asis-redondo oscuro" id="asis-enviar" aria-label="Enviar" hidden><span data-ico="enviar"></span></button>
+        </form>
+
+        <div class="asis-grabando" id="asis-grabando" hidden>
+            <button type="button" class="btn btn-fantasma" id="asis-grab-cancelar">Cancelar</button>
+            <span class="asis-reloj"><i></i><span id="asis-grab-tiempo">0:00</span></span>
+            <button type="button" class="btn btn-primario" id="asis-grab-enviar">Enviar</button>
+        </div>
+
+        <!-- Sin `capture`: así el teléfono ofrece sacar la foto o elegir una
+             de la galería, que es donde queda la factura que mandaron por
+             WhatsApp. -->
+        <input type="file" id="asis-archivo" accept="image/*" hidden>
+    </section>
 </div>
 
 <!-- Modal de alta y edición. El formulario se arma desde JS según qué se esté
@@ -171,7 +213,7 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
         <div class="modal-cabecera">
             <h2 id="modal-titulo"></h2>
-            <button class="btn btn-icono" id="modal-cerrar" aria-label="Cerrar">&times;</button>
+            <button class="btn btn-icono" id="modal-cerrar" aria-label="Cerrar"><span data-ico="cerrar"></span></button>
         </div>
         <form id="modal-form"></form>
         <p class="error" id="modal-error" role="alert" hidden></p>
