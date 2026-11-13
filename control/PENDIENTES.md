@@ -14,8 +14,8 @@ control personal. Ahora abre en **Hoy** (qué tengo hoy, qué está atrasado,
 cuánto me deben, cuánto tengo que pagar, qué pedidos están por llegar) y las
 obras son una etiqueta opcional, no el eje.
 
-Cinco pantallas: **Hoy**, **Agenda**, **Plata** (antes "Pagos"), **Pedidos**
-(antes "Materiales") y **Obras**. Más un **asistente con IA** que recibe texto,
+Cinco pantallas: **Hoy**, **Agenda**, **Pagos**, **Pedidos** (antes
+"Materiales") y **Obras**. Más un **asistente con IA** que recibe texto,
 audio o foto y propone qué cargar.
 
 - **Sin paso de compilación.** HTML, CSS y módulos de JavaScript que el
@@ -118,6 +118,17 @@ PR [#2](https://github.com/NaiLauren/EspaArqui/pull/2) mergeado a `main` el
   4,5:1. Flujos probados de punta a punta contra el doble: tildar una tarea,
   marcar un cobro, foto → elegir "como pedido" → quitar un renglón → guardar,
   texto → agendar, y "Corregir" → formulario → guardar.
+
+### Pendiente: redesplegar la función
+
+La pantalla de cobros y gastos se llamó "Plata" durante unas horas y volvió a
+**"Pagos"**, que es como figura en el presupuesto 2026-37. El panel y el
+manual del asistente en el repo (`MANUAL`, en `nucleo.ts`) ya dicen "Pagos",
+pero **la función desplegada (versión 2) todavía tiene el manual viejo**: si
+se le pregunta cómo marcar un cobro, contesta 'En "Plata"...'. Hay que
+redesplegar `asistente` con el `nucleo.ts` actual. Lo demás del asistente
+(agendar, leer fotos, guardar) no cambia: la tarjeta ya dice "Guardado en
+Pagos" porque eso lo escribe el panel.
 
 ### Sin verificar
 

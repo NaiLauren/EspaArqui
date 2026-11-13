@@ -268,7 +268,7 @@ const minSeg = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
 
 const DESTINOS = {
     agenda: { vista: "agenda", nombre: "Agenda", guardar: "Agendar" },
-    pago: { vista: "plata", nombre: "Plata", guardar: "Guardar" },
+    pago: { vista: "pagos", nombre: "Pagos", guardar: "Guardar" },
     pedido: { vista: "pedidos", nombre: "Pedidos", guardar: "Guardar" },
 };
 

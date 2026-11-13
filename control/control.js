@@ -135,7 +135,7 @@ const estado = {
     lunes: lunesDe(new Date()),
     obras: [],
     obraActiva: null,
-    filtroPlata: "todos",
+    filtroPagos: "todos",
     busquedaPedidos: "",
     // Qué pedidos están desplegados. Se guarda acá y no en el DOM para que al
     // redibujar la lista (por ejemplo tras tildar un material) los pedidos
@@ -285,11 +285,11 @@ async function entrar(sesion) {
 // Navegación
 // ---------------------------------------------------------------------------
 
-const VISTAS = { hoy: pintarHoy, agenda: pintarAgenda, plata: pintarPlata, pedidos: pintarPedidos, obras: pintarObras };
+const VISTAS = { hoy: pintarHoy, agenda: pintarAgenda, pagos: pintarPagos, pedidos: pintarPedidos, obras: pintarObras };
 
-// Las dos pantallas que cambiaron de nombre: quien tenga guardado el enlace
-// viejo cae en la nueva en vez de en el inicio.
-const ALIAS = { pagos: "plata", materiales: "pedidos" };
+// Nombres que tuvieron estas pantallas: quien tenga guardado un enlace viejo
+// cae en la que corresponde en vez de en el inicio.
+const ALIAS = { plata: "pagos", materiales: "pedidos" };
 
 let ultimoPintado = 0;
 
@@ -325,7 +325,7 @@ document.addEventListener("click", (ev) => {
     if (!el) return;
     const d = el.dataset;
     if (d.ir === "obras") estado.obraActiva = d.obra || null;
-    if (d.ir === "plata" && d.filtro) fijarFiltroPlata(d.filtro);
+    if (d.ir === "pagos" && d.filtro) fijarFiltroPagos(d.filtro);
     if (d.ir === "pedidos" && d.pedido) estado.pedidosAbiertos.add(d.pedido);
     if (d.ir === "agenda" && d.fecha) estado.lunes = lunesDe(aFecha(d.fecha));
     cerrarAsistente();
@@ -468,7 +468,7 @@ function tarjetaTotal(etiqueta, valores, { clase = "", pie = "", ir = "" } = {})
         : `<div class="total ${clase}">${adentro}</div>`;
 }
 
-function resumenPlata(pagos) {
+function resumenPagos(pagos) {
     const hoy = hoyISO();
     const mes = hoy.slice(0, 7);
     const pendientes = pagos.filter((p) => p.estado === "pendiente");
@@ -495,7 +495,7 @@ function progresoPedido(p) {
 
 async function pintarHoy() {
     const hoy = hoyISO();
-    const [delDia, pend, viene, plataRes, pedidosRes] = await Promise.all([
+    const [delDia, pend, viene, pagosRes, pedidosRes] = await Promise.all([
         db.from("agenda").select("*").eq("fecha", hoy).order("hora_inicio", { nullsFirst: false }),
         db.from("agenda").select("*").eq("estado", "pendiente")
             .or(`fecha.is.null,fecha.lt.${hoy}`).order("fecha", { nullsFirst: false }),
@@ -505,7 +505,7 @@ async function pintarHoy() {
         db.from("pedidos").select("*, pedido_items(*)").eq("estado", "pedido").order("entrega_estimada", { nullsFirst: false }),
     ]);
 
-    for (const r of [delDia, pend, viene, plataRes, pedidosRes]) {
+    for (const r of [delDia, pend, viene, pagosRes, pedidosRes]) {
         if (r.error) return fallo(r.error, "cargar el inicio");
     }
 
@@ -519,7 +519,7 @@ async function pintarHoy() {
     else if (faltan === 0) titular = "Listo por hoy";
     else titular = `Hoy tenés ${faltan} ${faltan === 1 ? "cosa" : "cosas"}`;
 
-    const r = resumenPlata(plataRes.data);
+    const r = resumenPagos(pagosRes.data);
     const semana = aISO(sumarDias(aFecha(hoy), 7));
     const pagarPronto = r.pagar.filter((p) => p.vence && p.vence >= hoy && p.vence <= semana).length;
 
@@ -563,8 +563,8 @@ async function pintarHoy() {
 
         <section class="bloque">
             <div class="totales dos">
-                ${tarjetaTotal("Te deben", sumar(r.cobrar), { clase: "verde", pie: pieCobrar, ir: `data-ir="plata" data-filtro="pendiente"` })}
-                ${tarjetaTotal("Tenés que pagar", sumar(r.pagar), { pie: piePagar, ir: `data-ir="plata" data-filtro="pendiente"` })}
+                ${tarjetaTotal("Te deben", sumar(r.cobrar), { clase: "verde", pie: pieCobrar, ir: `data-ir="pagos" data-filtro="pendiente"` })}
+                ${tarjetaTotal("Tenés que pagar", sumar(r.pagar), { pie: piePagar, ir: `data-ir="pagos" data-filtro="pendiente"` })}
             </div>
         </section>
 
@@ -665,19 +665,19 @@ async function pintarAgenda() {
 }
 
 // ---------------------------------------------------------------------------
-// Plata
+// Pagos
 // ---------------------------------------------------------------------------
 
-function fijarFiltroPlata(filtro) {
-    estado.filtroPlata = filtro;
-    $$("#filtros-plata .chip").forEach((c) => c.classList.toggle("chip-activo", c.dataset.filtro === filtro));
+function fijarFiltroPagos(filtro) {
+    estado.filtroPagos = filtro;
+    $$("#filtros-pagos .chip").forEach((c) => c.classList.toggle("chip-activo", c.dataset.filtro === filtro));
 }
 
-$("#filtros-plata").addEventListener("click", (ev) => {
+$("#filtros-pagos").addEventListener("click", (ev) => {
     const chip = ev.target.closest(".chip");
     if (!chip) return;
-    fijarFiltroPlata(chip.dataset.filtro);
-    pintarPlata();
+    fijarFiltroPagos(chip.dataset.filtro);
+    pintarPagos();
 });
 
 function ordenarPagos(data) {
@@ -698,8 +698,8 @@ function ordenarPagos(data) {
     return data;
 }
 
-function htmlTotalesPlata(pagos) {
-    const r = resumenPlata(pagos);
+function htmlTotalesPagos(pagos) {
+    const r = resumenPagos(pagos);
     return (
         tarjetaTotal("Te deben", sumar(r.cobrar)) +
         tarjetaTotal("Vencido", sumar(r.cobrarVencido), { clase: "rojo" }) +
@@ -708,16 +708,16 @@ function htmlTotalesPlata(pagos) {
     );
 }
 
-async function pintarPlata() {
+async function pintarPagos() {
     const { data, error } = await db.from("pagos").select("*").order("creado", { ascending: false });
-    if (error) return fallo(error, "cargar la plata");
+    if (error) return fallo(error, "cargar los pagos");
 
     ordenarPagos(data);
-    $("#totales-plata").innerHTML = htmlTotalesPlata(data);
+    $("#totales-pagos").innerHTML = htmlTotalesPagos(data);
 
     const hoy = hoyISO();
     const visibles = data.filter((p) => {
-        switch (estado.filtroPlata) {
+        switch (estado.filtroPagos) {
             case "pendiente": return p.estado === "pendiente";
             case "pagado": return p.estado === "pagado";
             case "vencido": return p.estado === "pendiente" && p.vence && p.vence < hoy;
@@ -725,7 +725,7 @@ async function pintarPlata() {
         }
     });
 
-    $("#lista-plata").innerHTML = visibles.length === 0
+    $("#lista-pagos").innerHTML = visibles.length === 0
         ? `<p class="vacio">${data.length === 0 ? `Todavía no hay cobros ni gastos. Cargá el primero con "+ Nuevo".` : "No hay nada en este filtro."}</p>`
         : lista(visibles.map((p) => filaPago(p)));
 }
@@ -895,7 +895,7 @@ async function pintarDetalleObra(obraId) {
     ]);
 
     if (agendaRes.error) return fallo(agendaRes.error, "cargar la agenda de la obra");
-    if (pagosRes.error) return fallo(pagosRes.error, "cargar la plata de la obra");
+    if (pagosRes.error) return fallo(pagosRes.error, "cargar los pagos de la obra");
     if (pedidosRes.error) return fallo(pedidosRes.error, "cargar los pedidos de la obra");
 
     const pagos = ordenarPagos(pagosRes.data);
@@ -916,11 +916,11 @@ async function pintarDetalleObra(obraId) {
     cont.hidden = false;
     cont.innerHTML = `
         ${sub ? `<p class="obra-sub">${esc(sub)}</p>` : ""}
-        <div class="totales">${htmlTotalesPlata(pagos)}</div>
+        <div class="totales">${htmlTotalesPagos(pagos)}</div>
         ${bloque("Agenda", "agenda", "Agregar",
             agenda.length ? lista(agenda.map((e) => filaAgenda(e, { conFecha: true, conObra: false }))) : "",
             "No hay nada agendado en esta obra.")}
-        ${bloque("Plata", "pago", "Agregar",
+        ${bloque("Pagos", "pago", "Agregar",
             pagos.length ? lista(pagos.map((p) => filaPago(p, false))) : "",
             "No hay cobros ni gastos en esta obra.")}
         ${bloque("Pedidos", "pedido", "Agregar",

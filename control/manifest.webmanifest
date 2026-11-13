@@ -1,7 +1,7 @@
 {
   "name": "Espacio Arquitectura · Panel",
   "short_name": "EA Panel",
-  "description": "Tu día, tu agenda, tu plata y tus pedidos, en un solo lugar.",
+  "description": "Tu día, tu agenda, tus pagos y tus pedidos, en un solo lugar.",
   "lang": "es-AR",
   "dir": "ltr",
   "start_url": "/control/",
