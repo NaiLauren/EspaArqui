@@ -91,13 +91,10 @@ navegador  ──►  función `asistente`  ──►  Gemini
 
 ## Estado
 
-Rama `control-personal-ia`, PR abierto contra `main`. **Producción sigue con la
-versión anterior** hasta que se mergee: Vercel despliega a producción desde
-`main`.
-
-Lo que ya está en producción y no depende del merge: la migración
-`20261113000000_asistente_ia.sql` (aplicada) y la función `asistente`
-(desplegada, versión 2). Son aditivas: el panel viejo no las usa.
+PR [#2](https://github.com/NaiLauren/EspaArqui/pull/2) mergeado a `main` el
+2026-11-13: **el panel nuevo está en producción** (Vercel despliega solo desde
+`main`). También están la migración `20261113000000_asistente_ia.sql`
+(aplicada) y la función `asistente` (desplegada, versión 2).
 
 ### Verificado
 
@@ -126,8 +123,8 @@ Lo que ya está en producción y no depende del merge: la migración
 
 1. **El asistente con una sesión real.** La función desplegada no se pudo
    probar autenticada: hace falta la contraseña del estudio. Es lo primero a
-   probar después del merge (o en el preview de Vercel): mandar un texto, un
-   audio y una foto, y guardar una propuesta.
+   probar entrando al panel: mandar un texto, un audio y una foto, y guardar
+   una propuesta.
 2. **Grabar audio en un teléfono.** Chrome sin cabeza niega el micrófono. La
    conversión a WAV y el envío están escritos pero no corrieron en un
    dispositivo real, ni en Android ni en iPhone.
