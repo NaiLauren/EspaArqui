@@ -17,3 +17,12 @@ comparar_calidad.html
 # Imágenes que dejó de usar la web al fusionar la sección de renders
 # con el hero. Siguen en el historial de git si hicieran falta.
 Videoscroll/_sin-uso/
+
+# Secretos: claves de API y variables de entorno. El repo es PÚBLICO.
+# La clave de la IA vive solo como variable de entorno del servidor.
+*.nosubir.*
+*apikey*
+.env
+.env.*
+!.env.example
+.vercel/
