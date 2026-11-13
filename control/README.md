@@ -1,14 +1,19 @@
 # Panel de control — Espacio Arquitectura
 
-Panel interno del estudio, servido como `/control` dentro del mismo sitio.
-Tres pantallas: agenda semanal, pagos y pedidos de materiales.
+Panel de control personal del estudio, servido como `/control` dentro del mismo
+sitio. Abre en "Hoy" y tiene agenda semanal, plata (cobros y gastos), pedidos a
+proveedores y obras, más un asistente con IA que recibe texto, audio o foto.
+
+El estado, lo verificado y lo que falta están en `PENDIENTES.md`.
 
 ## Cómo está armado
 
 - **Sin build.** HTML, CSS y un módulo de JavaScript, igual que la web
   pública. Se despliega solo, junto con el resto del sitio.
 - **Supabase** pone la base de datos y el login. El navegador le habla
-  directo; no hay servidor propio en el medio.
+  directo; no hay servidor propio en el medio. La única excepción es el
+  asistente, que pasa por una Edge Function (`supabase/functions/asistente`)
+  porque necesita una clave que no puede vivir en el navegador.
 - **La seguridad vive en la base**, no en el navegador. Las políticas RLS de
   `supabase/migrations/20261112000000_control_inicial.sql` deciden quién ve qué.
   Cualquier regla nueva va en SQL. El JavaScript del panel no protege nada y
@@ -80,34 +85,56 @@ Si alguna vez hay que cambiarlos: **Project Settings → API**.
 Commit y push. Vercel publica el sitio y el panel queda en
 `/control` del mismo dominio.
 
+### 7. Asistente con IA
+
+Hace falta la migración `20261113000000_asistente_ia.sql`, la función
+`asistente` desplegada con `verify_jwt` apagado, y el secreto `GEMINI_API_KEY`
+cargado en **Edge Functions → Secrets**. La clave no va nunca al repositorio.
+
+Se enciende y se apaga desde la base (`update public.ia_ajustes set activa =
+false;`). Apagado, la barra del asistente no aparece y el resto del panel
+funciona igual.
+
 ## Qué hace cada pantalla
 
-**Agenda.** La semana de lunes a domingo. Reuniones y trabajos son la misma
-tabla con dos campos que los distinguen: `tipo` separa reunión de trabajo, y
-una `fecha` vacía es un trabajo pendiente todavía sin día. El panel de la
-derecha junta lo que no tiene fecha y lo que ya venció. Clic en un hueco del
-día para cargar algo en esa fecha; clic en una ficha para editarla.
+**Hoy.** La pantalla de inicio: lo agendado para hoy, lo pendiente (atrasado o
+sin fecha), cuánto te deben y cuánto tenés que pagar, los pedidos por llegar y
+lo que viene. El círculo de cada renglón lo da por hecho.
 
-**Pagos.** Registro interno: se anota lo que se cobró y lo que falta cobrar,
+**Agenda.** La semana de lunes a domingo. Reuniones y tareas son la misma
+tabla con dos campos que los distinguen: `tipo` separa reunión de tarea (en la
+base, `trabajo`), y una `fecha` vacía es una tarea pendiente todavía sin día.
+"Pendientes" junta lo que no tiene fecha y lo que ya venció. El "+" de cada día
+carga algo en esa fecha; tocar un renglón lo abre para editarlo.
+
+**Plata.** Registro interno: se anota lo que se cobró y lo que falta cobrar,
 acá no se cobra nada. Los totales se calculan por moneda, porque sumar pesos
-con dólares daría un número sin sentido. "Marcar pagado" pone el estado y la
-fecha de hoy de una.
+con dólares daría un número sin sentido. El círculo de cada movimiento lo marca
+como cobrado o pagado con la fecha de hoy; otro toque lo deshace.
 
-**Materiales.** Un pedido por proveedor, con su lista de materiales adentro.
-Los ítems se tildan a medida que llegan y la ficha muestra cuántos faltan.
+**Pedidos.** Un pedido por proveedor, con su lista de materiales adentro.
+Los materiales se tildan a medida que llegan y la barra muestra el avance.
 
-**Obras.** Es lo que ata a las otras tres: conviene cargar las obras primero.
-Borrar una obra no borra su historial de pagos ni su agenda; esos registros
-quedan sin obra asignada.
+**Obras.** Opcionales: cualquier tarea, cobro, gasto o pedido puede ir sin
+obra. Tocando una se ve todo lo suyo junto. Borrar una obra no borra su
+historial; esos registros quedan sin obra asignada.
+
+**Asistente.** La barra oscura de abajo. Entiende pedidos por texto o audio
+("reunión con Rossi el martes a las 10") y lee fotos de facturas, tickets,
+remitos y presupuestos. Muestra una tarjeta con lo que entendió y **no guarda
+nada hasta que la persona toca el botón**. También contesta cómo se usa el
+panel.
 
 ## Correrlo local
 
 ```bash
-python -m http.server 8777
+node --experimental-strip-types herramientas/prueba-local/servidor.mjs
 ```
 
-Y abrir `http://localhost:8777/control/`. Apunta a la misma base que
-producción, así que lo que se cargue probando queda cargado de verdad.
+Y abrir `http://localhost:8777/control`. Así corre con datos de ejemplo en
+memoria y sin contraseña. Con `STUB=0` adelante apunta a la misma base que
+producción, y lo que se cargue probando queda cargado de verdad. El detalle
+está en `PENDIENTES.md`.
 
 ## Qué no hace (todavía)
 
@@ -117,4 +144,5 @@ producción, así que lo que se cargue probando queda cargado de verdad.
 - **No tiene acceso para clientes ni proveedores.** Hoy todos los que entran
   ven todo. Dar acceso parcial exige políticas RLS nuevas y una vista aparte.
 - **No manda recordatorios.** Los vencimientos y los pendientes hay que ir a
-  mirarlos.
+  mirarlos; "Hoy" los pone adelante, pero no avisa.
+- **No anda sin señal.**

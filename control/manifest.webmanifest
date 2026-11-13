@@ -1,7 +1,7 @@
 {
   "name": "Espacio Arquitectura · Panel",
   "short_name": "EA Panel",
-  "description": "Agenda, pagos y pedidos de materiales del estudio.",
+  "description": "Tu día, tu agenda, tu plata y tus pedidos, en un solo lugar.",
   "lang": "es-AR",
   "dir": "ltr",
   "start_url": "/control/",

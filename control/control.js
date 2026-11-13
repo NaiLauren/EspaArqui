@@ -1,19 +1,26 @@
 // Panel de control de Espacio Arquitectura.
 //
 // Sin paso de compilación, igual que la web pública: el navegador carga este
-// módulo tal cual está en el repositorio. Con tres pantallas y un solo
-// estudio usándolo, un bundler sería más mantenimiento del que ahorra.
+// módulo tal cual está en el repositorio.
 //
 // El navegador habla directo con Supabase; no hay servidor propio en el
 // medio. Eso es seguro únicamente porque las políticas RLS de la base deciden
 // qué puede ver cada usuario: este archivo no protege nada y no debe intentar
 // hacerlo. Cualquier regla de acceso nueva va en SQL, no acá.
+//
+// La única pieza que sí corre en un servidor es el asistente (ver
+// asistente.js y supabase/functions/asistente): necesita una clave que no
+// puede vivir en el navegador.
 
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
+import { ico, completarIconos } from "./iconos.js";
+import { iniciarAsistente, cerrarAsistente } from "./asistente.js";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+completarIconos();
 
 // Si todavía no se cargaron las credenciales, mostramos la pantalla que
 // explica qué falta en vez de reventar con un error de consola que el cliente
@@ -50,7 +57,7 @@ function aISO(fecha) {
 function lunesDe(fecha) {
     const d = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
     // getDay() cuenta desde el domingo; este corrimiento mueve el origen al
-    // lunes, que es como el estudio mira la semana.
+    // lunes, que es como se mira la semana.
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     return d;
 }
@@ -61,11 +68,18 @@ function sumarDias(fecha, dias) {
     return d;
 }
 
-const HOY = aISO(new Date());
+// "Hoy" se calcula cada vez y no una sola vez al cargar: el panel queda
+// abierto días enteros en la pantalla de inicio del teléfono, y con una
+// constante el miércoles seguiría creyendo que es lunes.
+function hoyISO() {
+    return aISO(new Date());
+}
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
                "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+const nombreDia = (fecha) => DIAS[(fecha.getDay() + 6) % 7];
 
 function fechaCorta(iso) {
     if (!iso) return "";
@@ -73,14 +87,34 @@ function fechaCorta(iso) {
     return `${f.getDate()} ${MESES[f.getMonth()].slice(0, 3)}`;
 }
 
+function fechaLarga(iso) {
+    const f = aFecha(iso);
+    return `${nombreDia(f)} ${f.getDate()} de ${MESES[f.getMonth()]}`;
+}
+
+// Cómo se nombra un día cuando está cerca: "hoy", "mañana", "lun 16". Más
+// lejos que una semana ya no ayuda el día de la semana y va "20 nov".
+function diaCercano(iso) {
+    const hoy = aFecha(hoyISO());
+    const dias = Math.round((aFecha(iso) - hoy) / 86400000);
+    if (dias === 0) return "hoy";
+    if (dias === 1) return "mañana";
+    if (dias === -1) return "ayer";
+    if (dias > 1 && dias < 7) return `${nombreDia(aFecha(iso)).slice(0, 3).toLowerCase()} ${aFecha(iso).getDate()}`;
+    return fechaCorta(iso);
+}
+
+const conArticulo = (dia) => (["hoy", "mañana", "ayer"].includes(dia) ? dia : "el " + dia);
+const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
 function plata(monto, moneda) {
     const n = Number(monto) || 0;
     const simbolo = moneda === "USD" ? "US$" : "$";
     return simbolo + " " + n.toLocaleString("es-AR", { maximumFractionDigits: 0 });
 }
 
-// Todo lo que viene de la base se escapa antes de entrar al HTML. Lo cargan
-// sólo los del estudio, así que no es defensa contra un atacante: es que un
+// Todo lo que viene de la base se escapa antes de entrar al HTML. Lo carga
+// sólo el estudio, así que no es defensa contra un atacante: es que un
 // presupuesto titulado 'Reforma "Centro"' no rompa la página.
 function esc(texto) {
     if (texto === null || texto === undefined) return "";
@@ -97,11 +131,11 @@ function esc(texto) {
 // ---------------------------------------------------------------------------
 
 const estado = {
-    vista: "agenda",
+    vista: "hoy",
     lunes: lunesDe(new Date()),
     obras: [],
     obraActiva: null,
-    filtroPagos: "todos",
+    filtroPlata: "todos",
     busquedaPedidos: "",
     // Qué pedidos están desplegados. Se guarda acá y no en el DOM para que al
     // redibujar la lista (por ejemplo tras tildar un material) los pedidos
@@ -190,7 +224,7 @@ $("#btn-salir").addEventListener("click", () => db.auth.signOut());
 
 // Marca si el panel ya está armado, para que un refresco de token (que
 // dispara este mismo evento cada hora) no vuelva a cargar todo y mande al
-// usuario de vuelta a la semana actual mientras mira otra.
+// usuario de vuelta al inicio mientras mira otra cosa.
 let panelArmado = false;
 
 db.auth.onAuthStateChange((_evento, sesion) => {
@@ -210,6 +244,7 @@ db.auth.onAuthStateChange((_evento, sesion) => {
 });
 
 function mostrarLogin() {
+    cerrarAsistente();
     $("#app").hidden = true;
     $("#pantalla-login").hidden = false;
     $("#login-pass").value = "";
@@ -235,46 +270,83 @@ async function entrar(sesion) {
     $("#usuario").textContent = sesion.user.email;
 
     await cargarObras();
-    irA(location.hash.replace("#", "") || "agenda");
+    irA(location.hash.replace("#", "") || "hoy");
+
+    // El asistente se enciende aparte y sin esperarlo: si no está contratado
+    // o la consulta falla, el panel funciona igual, sólo que sin la barra.
+    iniciarAsistente({
+        db, esc, plata, fechaLarga, hoyISO, mensajeDeError, abrirModal, irA,
+        nombreObra,
+        refrescar: () => VISTAS[estado.vista](),
+    });
 }
 
 // ---------------------------------------------------------------------------
 // Navegación
 // ---------------------------------------------------------------------------
 
-const VISTAS = { agenda: pintarAgenda, pagos: pintarPagos, materiales: pintarPedidos, obras: pintarObras };
+const VISTAS = { hoy: pintarHoy, agenda: pintarAgenda, plata: pintarPlata, pedidos: pintarPedidos, obras: pintarObras };
+
+// Las dos pantallas que cambiaron de nombre: quien tenga guardado el enlace
+// viejo cae en la nueva en vez de en el inicio.
+const ALIAS = { pagos: "plata", materiales: "pedidos" };
+
+let ultimoPintado = 0;
 
 function irA(vista) {
-    if (!VISTAS[vista]) vista = "agenda";
+    vista = ALIAS[vista] || vista;
+    if (!VISTAS[vista]) vista = "hoy";
     // Cambiar de pantalla con un formulario abierto (por ejemplo con el botón
     // Atrás del navegador) dejaba el modal flotando sobre la vista nueva.
     if (modalActual) cerrarModal();
+    const cambio = vista !== estado.vista;
     estado.vista = vista;
     location.hash = vista;
 
     $$(".vista").forEach((v) => { v.hidden = true; });
     $(`#vista-${vista}`).hidden = false;
     $$(".nav-item").forEach((b) => b.classList.toggle("activo", b.dataset.vista === vista));
+    $("#btn-obras").classList.toggle("activo", vista === "obras");
+    if (cambio) window.scrollTo(0, 0);
 
+    ultimoPintado = Date.now();
     VISTAS[vista]();
 }
 
 $("#nav").addEventListener("click", (ev) => {
     const boton = ev.target.closest(".nav-item");
-    if (!boton) return;
-    if (boton.dataset.vista === "obras") estado.obraActiva = null;
-    irA(boton.dataset.vista);
+    if (boton) irA(boton.dataset.vista);
+});
+
+// Cualquier cosa con data-ir lleva a una pantalla, esté donde esté: en la
+// barra, en el inicio o adentro del asistente.
+document.addEventListener("click", (ev) => {
+    const el = ev.target.closest("[data-ir]");
+    if (!el) return;
+    const d = el.dataset;
+    if (d.ir === "obras") estado.obraActiva = d.obra || null;
+    if (d.ir === "plata" && d.filtro) fijarFiltroPlata(d.filtro);
+    if (d.ir === "pedidos" && d.pedido) estado.pedidosAbiertos.add(d.pedido);
+    if (d.ir === "agenda" && d.fecha) estado.lunes = lunesDe(aFecha(d.fecha));
+    cerrarAsistente();
+    irA(d.ir);
+    if (d.obra) window.scrollTo(0, 0);
 });
 
 window.addEventListener("hashchange", () => {
     const vista = location.hash.replace("#", "");
-    if (vista && vista !== estado.vista) irA(vista);
+    if (vista && (ALIAS[vista] || vista) !== estado.vista) irA(vista);
 });
 
-function abrirObra(id) {
-    estado.obraActiva = id;
-    irA("obras");
-}
+// Al volver al panel después de un rato (el teléfono estuvo bloqueado, o era
+// otro día) se vuelve a pedir lo que se está mirando. Si hay algo abierto no
+// se toca: redibujar por debajo de un formulario a medio llenar molesta.
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden || $("#app").hidden || modalActual || !$("#asis-fondo").hidden) return;
+    if (Date.now() - ultimoPintado < 60000) return;
+    ultimoPintado = Date.now();
+    VISTAS[estado.vista]();
+});
 
 $("#obra-volver").addEventListener("click", () => {
     estado.obraActiva = null;
@@ -282,7 +354,7 @@ $("#obra-volver").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Obras (se usan como desplegable en el resto de las pantallas)
+// Piezas que se repiten en todas las pantallas
 // ---------------------------------------------------------------------------
 
 async function cargarObras() {
@@ -296,116 +368,242 @@ function nombreObra(id) {
     return o ? o.nombre : "";
 }
 
-async function pintarObras() {
-    await cargarObras();
-    if (estado.obraActiva) {
-        const existe = estado.obras.some((o) => o.id === estado.obraActiva);
-        if (existe) return pintarDetalleObra(estado.obraActiva);
-        estado.obraActiva = null;
+// Una tarea o reunión: el círculo la da por hecha y el texto la abre. Son dos
+// botones y no uno porque un <button> no puede contener otro.
+function filaAgenda(e, { conFecha = false, conObra = true } = {}) {
+    const hecho = e.estado === "hecho";
+    const atrasado = e.estado === "pendiente" && e.fecha && e.fecha < hoyISO();
+    const hora = e.hora_inicio
+        ? e.hora_inicio.slice(0, 5) + (e.hora_fin ? "–" + e.hora_fin.slice(0, 5) : "")
+        : "";
+
+    let cuando = "";
+    if (conFecha) {
+        if (!e.fecha) cuando = "Sin fecha";
+        else if (atrasado) cuando = "Era para " + conArticulo(diaCercano(e.fecha));
+        else cuando = mayuscula(diaCercano(e.fecha));
     }
 
-    $("#obra-volver").hidden = true;
-    $("#obras-titulo").textContent = "Obras";
-    $("#obra-acciones").innerHTML = `<button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>`;
-    $("#detalle-obra").hidden = true;
+    // Si el lugar es la obra misma ("Oficinas Rossi" en la obra Oficinas
+    // Rossi) se dice una sola vez.
+    const obra = conObra ? nombreObra(e.obra_id) : "";
+    const resto = [hora, e.lugar, obra === e.lugar ? "" : obra].filter(Boolean).join(" · ");
+    const sub = [
+        cuando ? `<span class="cuando">${esc(cuando)}</span>` : "",
+        esc(resto),
+    ].filter(Boolean).join(" · ");
 
-    const cont = $("#lista-obras");
-    cont.hidden = false;
-
-    if (estado.obras.length === 0) {
-        cont.innerHTML = `<p class="vacio">Todavía no hay obras cargadas. La obra es lo que ata la agenda, los pagos y los materiales, así que conviene empezar por acá.</p>`;
-        return;
-    }
-
-    const etiquetas = { activa: "ok", pausada: "alerta", terminada: "neutro" };
-
-    cont.innerHTML = estado.obras.map((o) => `
-        <div class="ficha">
-            <div class="ficha-cuerpo">
-                <div class="ficha-titulo">
-                    <button class="ficha-link" data-ver-obra="${o.id}">${esc(o.nombre)}</button>
-                </div>
-                <div class="ficha-sub">${esc(o.cliente || "Sin cliente")}${o.notas ? " · " + esc(o.notas) : ""}</div>
-            </div>
-            <span class="etiqueta ${etiquetas[o.estado]}">${esc(o.estado)}</span>
-            <div class="ficha-acciones">
-                <button class="btn btn-fantasma" data-ver-obra="${o.id}">Ver obra</button>
-                <button class="btn btn-fantasma" data-editar="obra" data-id="${o.id}">Editar</button>
-            </div>
-        </div>`).join("");
+    return `
+        <div class="fila ${e.tipo} ${e.estado} ${atrasado ? "atrasado" : ""}">
+            ${e.estado === "cancelado" ? `<span class="tilde-hueco"></span>` : `
+            <button class="tilde" data-hecho="${e.id}" data-estado="${e.estado}" aria-pressed="${hecho}"
+                    aria-label="${hecho ? "Volver a pendiente" : "Dar por hecho"}: ${esc(e.titulo)}">${ico("tilde")}</button>`}
+            <button class="fila-cuerpo" data-editar="agenda" data-id="${e.id}">
+                <span class="fila-titulo">${esc(e.titulo)}</span>
+                ${sub ? `<span class="fila-sub">${sub}</span>` : ""}
+            </button>
+            ${e.tipo === "reunion" ? `<span class="fila-marca" title="Reunión">${ico("personas")}</span>` : ""}
+        </div>`;
 }
 
-async function pintarDetalleObra(obraId) {
-    const obra = estado.obras.find((o) => o.id === obraId);
-    if (!obra) return;
+// Un cobro o un gasto. El signo y el color dicen para qué lado va la plata;
+// antes lo decían dos etiquetas por renglón.
+function filaPago(p, conObra = true) {
+    const pagado = p.estado === "pagado";
+    const cobro = p.tipo === "cobro";
+    const vencido = !pagado && p.vence && p.vence < hoyISO();
 
-    const etiquetasObra = { activa: "ok", pausada: "alerta", terminada: "neutro" };
+    let cuando;
+    if (pagado) cuando = (cobro ? "Cobrado" : "Pagado") + (p.fecha_pago ? " el " + fechaCorta(p.fecha_pago) : "");
+    else if (vencido) cuando = "Venció " + conArticulo(diaCercano(p.vence));
+    else cuando = p.vence ? "Vence " + conArticulo(diaCercano(p.vence)) : "Sin vencimiento";
 
-    $("#obra-volver").hidden = false;
-    $("#obras-titulo").textContent = obra.nombre;
-    $("#obra-acciones").innerHTML = `
-        <span class="etiqueta ${etiquetasObra[obra.estado]}">${esc(obra.estado)}</span>
-        <button class="btn btn-fantasma" data-editar="obra" data-id="${obra.id}">Editar obra</button>`;
-    $("#lista-obras").hidden = true;
+    // Primero el cuándo, que es lo que se busca al mirar la lista; la obra y
+    // el medio de pago van después.
+    const sub = [
+        `<span class="cuando">${esc(cuando)}</span>`,
+        esc(conObra ? nombreObra(p.obra_id) : ""),
+        esc(p.metodo),
+    ].filter(Boolean).join(" · ");
 
-    const [agendaRes, pagosRes, pedidosRes] = await Promise.all([
-        db.from("agenda").select("*").eq("obra_id", obraId).order("fecha", { nullsFirst: true }).order("hora_inicio", { nullsFirst: false }),
-        db.from("pagos").select("*").eq("obra_id", obraId).order("creado", { ascending: false }),
-        db.from("pedidos").select("*, pedido_items(*)").eq("obra_id", obraId).order("creado", { ascending: false }),
+    const accion = pagado ? "Volver a pendiente" : (cobro ? "Marcar como cobrado" : "Marcar como pagado");
+
+    return `
+        <div class="fila pago ${p.tipo} ${p.estado} ${vencido ? "atrasado" : ""}">
+            <button class="tilde" data-pagar="${p.id}" data-estado="${p.estado}" aria-pressed="${pagado}"
+                    aria-label="${accion}: ${esc(p.concepto)}">${ico("tilde")}</button>
+            <button class="fila-cuerpo" data-editar="pago" data-id="${p.id}">
+                <span class="fila-titulo">${esc(p.concepto)}</span>
+                <span class="fila-sub">${sub}</span>
+            </button>
+            <span class="monto ${p.tipo}">${cobro ? "+" : "−"} ${plata(p.monto, p.moneda)}</span>
+        </div>`;
+}
+
+const lista = (filas) => `<div class="lista">${filas.join("")}</div>`;
+
+// Los totales se acumulan por moneda. Sumar pesos con dólares daría un número
+// que no significa nada, así que cada tarjeta muestra una línea por moneda y
+// sólo si tiene algo.
+function sumar(pagos) {
+    const t = { ARS: 0, USD: 0 };
+    for (const p of pagos) t[p.moneda === "USD" ? "USD" : "ARS"] += Number(p.monto) || 0;
+    return t;
+}
+
+function lineasPlata(valores) {
+    const lineas = ["ARS", "USD"].filter((m) => valores[m] > 0).map((m) => plata(valores[m], m));
+    return lineas.length ? lineas : [plata(0, "ARS")];
+}
+
+function tarjetaTotal(etiqueta, valores, { clase = "", pie = "", ir = "" } = {}) {
+    // El color es para cuando hay plata: un "$ 0" en rojo asusta sin motivo.
+    if (!valores.ARS && !valores.USD) clase = "";
+    const adentro = `
+        <span class="total-etiqueta">${etiqueta}</span>
+        ${lineasPlata(valores).map((l) => `<span class="total-valor">${l}</span>`).join("")}
+        ${pie ? `<span class="total-pie">${pie}</span>` : ""}`;
+    return ir
+        ? `<button class="total ${clase}" ${ir}>${adentro}</button>`
+        : `<div class="total ${clase}">${adentro}</div>`;
+}
+
+function resumenPlata(pagos) {
+    const hoy = hoyISO();
+    const mes = hoy.slice(0, 7);
+    const pendientes = pagos.filter((p) => p.estado === "pendiente");
+    const cobrar = pendientes.filter((p) => p.tipo === "cobro");
+    const pagar = pendientes.filter((p) => p.tipo === "gasto");
+    return {
+        cobrar,
+        pagar,
+        cobrarVencido: cobrar.filter((p) => p.vence && p.vence < hoy),
+        pagarVencido: pagar.filter((p) => p.vence && p.vence < hoy),
+        cobradoMes: pagos.filter((p) => p.estado === "pagado" && p.tipo === "cobro" && (p.fecha_pago || "").startsWith(mes)),
+    };
+}
+
+function progresoPedido(p) {
+    const items = p.pedido_items || [];
+    const llegaron = items.filter((i) => i.recibido).length;
+    return { items, llegaron, total: items.length, pct: items.length ? Math.round((llegaron / items.length) * 100) : 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Hoy
+// ---------------------------------------------------------------------------
+
+async function pintarHoy() {
+    const hoy = hoyISO();
+    const [delDia, pend, viene, plataRes, pedidosRes] = await Promise.all([
+        db.from("agenda").select("*").eq("fecha", hoy).order("hora_inicio", { nullsFirst: false }),
+        db.from("agenda").select("*").eq("estado", "pendiente")
+            .or(`fecha.is.null,fecha.lt.${hoy}`).order("fecha", { nullsFirst: false }),
+        db.from("agenda").select("*").eq("estado", "pendiente").gt("fecha", hoy)
+            .order("fecha").order("hora_inicio", { nullsFirst: false }).limit(4),
+        db.from("pagos").select("*").eq("estado", "pendiente"),
+        db.from("pedidos").select("*, pedido_items(*)").eq("estado", "pedido").order("entrega_estimada", { nullsFirst: false }),
     ]);
 
-    if (agendaRes.error) return fallo(agendaRes.error, "cargar la agenda de la obra");
-    if (pagosRes.error) return fallo(pagosRes.error, "cargar los pagos de la obra");
-    if (pedidosRes.error) return fallo(pedidosRes.error, "cargar los pedidos de la obra");
+    for (const r of [delDia, pend, viene, plataRes, pedidosRes]) {
+        if (r.error) return fallo(r.error, "cargar el inicio");
+    }
 
-    const pagos = pagosRes.data;
-    ordenarPagos(pagos);
+    const eventos = delDia.data.filter((e) => e.estado !== "cancelado");
+    const faltan = eventos.filter((e) => e.estado === "pendiente").length;
+    const atrasadas = pend.data.filter((e) => e.fecha).length;
+    const sinFecha = pend.data.length - atrasadas;
 
-    const agenda = agendaRes.data;
-    const pedidos = pedidosRes.data;
+    let titular;
+    if (eventos.length === 0) titular = "Hoy no tenés nada agendado";
+    else if (faltan === 0) titular = "Listo por hoy";
+    else titular = `Hoy tenés ${faltan} ${faltan === 1 ? "cosa" : "cosas"}`;
 
-    const sub = [obra.cliente || "Sin cliente", obra.notas].filter(Boolean).join(" · ");
-    const cont = $("#detalle-obra");
-    cont.hidden = false;
+    const r = resumenPlata(plataRes.data);
+    const semana = aISO(sumarDias(aFecha(hoy), 7));
+    const pagarPronto = r.pagar.filter((p) => p.vence && p.vence >= hoy && p.vence <= semana).length;
 
-    cont.innerHTML = `
-        <div class="ficha obra-resumen">
-            <div class="ficha-cuerpo">
-                <div class="ficha-sub">${esc(sub)}</div>
-            </div>
+    const pieCobrar = r.cobrarVencido.length
+        ? `<span class="rojo">${r.cobrarVencido.length} ${r.cobrarVencido.length === 1 ? "vencido" : "vencidos"}</span>`
+        : (r.cobrar.length ? "al día" : "nada pendiente");
+    const piePagar = r.pagarVencido.length
+        ? `<span class="rojo">${r.pagarVencido.length} ${r.pagarVencido.length === 1 ? "vencido" : "vencidos"}</span>`
+        : (pagarPronto ? `${pagarPronto} ${pagarPronto === 1 ? "vence" : "vencen"} esta semana` : (r.pagar.length ? "sin apuro" : "nada pendiente"));
+
+    const pendientes = pend.data.slice(0, 5);
+    const obrasActivas = estado.obras.filter((o) => o.estado === "activa");
+
+    $("#vista-hoy").innerHTML = `
+        <div class="hoy-hero">
+            <p class="hoy-fecha">${esc(fechaLarga(hoy))}</p>
+            <h1 class="hoy-titular">${titular}</h1>
+            ${atrasadas ? `
+            <button class="hoy-alerta" data-bajar="pendientes-hoy">${ico("alerta")} ${atrasadas} ${atrasadas === 1 ? "atrasada" : "atrasadas"}</button>` : ""}
         </div>
 
-        <div class="totales">${htmlTotalesPagos(pagos)}</div>
-
-        <div class="obra-bloque">
-            <div class="obra-bloque-cabecera">
-                <h3>Agenda de la obra (${agenda.length})</h3>
-                <button class="btn btn-primario" data-nuevo="agenda" data-obra="${obra.id}">+ Entrada</button>
+        <section class="bloque">
+            <div class="bloque-cabecera">
+                <h2>Hoy</h2>
+                <button class="btn btn-suave" data-nuevo-dia="${hoy}">+ Agregar</button>
             </div>
-            ${agenda.length === 0
-                ? `<p class="vacio">No hay entradas de agenda en esta obra.</p>`
-                : agenda.map((e) => chipEvento(e, true, false)).join("")}
-        </div>
+            ${eventos.length
+                ? lista(eventos.map((e) => filaAgenda(e)))
+                : `<p class="vacio">Día libre. Si surge algo, decíselo al asistente o tocá "+ Agregar".</p>`}
+        </section>
 
-        <div class="obra-bloque">
-            <div class="obra-bloque-cabecera">
-                <h3>Pagos de la obra (${pagos.length})</h3>
-                <button class="btn btn-primario" data-nuevo="pago" data-obra="${obra.id}">+ Pago</button>
+        ${pendientes.length ? `
+        <section class="bloque" id="pendientes-hoy">
+            <div class="bloque-cabecera">
+                <h2>Pendientes</h2>
+                <span class="bloque-nota">${[atrasadas ? `${atrasadas} ${atrasadas === 1 ? "atrasada" : "atrasadas"}` : "", sinFecha ? `${sinFecha} sin fecha` : ""].filter(Boolean).join(" · ")}</span>
             </div>
-            ${pagos.length === 0
-                ? `<p class="vacio">No hay pagos cargados en esta obra.</p>`
-                : pagos.map((p) => fichaPagoHTML(p, false)).join("")}
-        </div>
+            ${lista(pendientes.map((e) => filaAgenda(e, { conFecha: true })))}
+            ${pend.data.length > pendientes.length ? `<button class="ver-mas" data-ir="agenda">Ver los ${pend.data.length} en Agenda</button>` : ""}
+        </section>` : ""}
 
-        <div class="obra-bloque">
-            <div class="obra-bloque-cabecera">
-                <h3>Pedidos de materiales (${pedidos.length})</h3>
-                <button class="btn btn-primario" data-nuevo="pedido" data-obra="${obra.id}">+ Pedido</button>
+        <section class="bloque">
+            <div class="totales dos">
+                ${tarjetaTotal("Te deben", sumar(r.cobrar), { clase: "verde", pie: pieCobrar, ir: `data-ir="plata" data-filtro="pendiente"` })}
+                ${tarjetaTotal("Tenés que pagar", sumar(r.pagar), { pie: piePagar, ir: `data-ir="plata" data-filtro="pendiente"` })}
             </div>
-            ${pedidos.length === 0
-                ? `<p class="vacio">No hay pedidos de materiales en esta obra.</p>`
-                : pedidos.map((p) => fichaPedidoHTML(p, false)).join("")}
-        </div>`;
+        </section>
+
+        ${pedidosRes.data.length ? `
+        <section class="bloque">
+            <div class="bloque-cabecera"><h2>Por llegar</h2></div>
+            <div class="lista">
+                ${pedidosRes.data.map((p) => {
+                    const g = progresoPedido(p);
+                    return `
+                    <button class="fila fila-entera" data-ir="pedidos" data-pedido="${p.id}">
+                        <span class="fila-icono">${ico("camion")}</span>
+                        <span class="fila-cuerpo">
+                            <span class="fila-titulo">${esc(p.proveedor || "Sin proveedor")}</span>
+                            <span class="fila-sub">${g.total ? `Llegaron ${g.llegaron} de ${g.total}` : "Sin materiales cargados"}${p.entrega_estimada ? " · entrega " + esc(diaCercano(p.entrega_estimada)) : ""}</span>
+                        </span>
+                        <span class="progreso" aria-hidden="true"><span style="width:${g.pct}%"></span></span>
+                    </button>`;
+                }).join("")}
+            </div>
+        </section>` : ""}
+
+        ${viene.data.length ? `
+        <section class="bloque">
+            <div class="bloque-cabecera">
+                <h2>Lo que viene</h2>
+                <button class="btn btn-suave" data-ir="agenda">Ver agenda</button>
+            </div>
+            ${lista(viene.data.map((e) => filaAgenda(e, { conFecha: true })))}
+        </section>` : ""}
+
+        ${obrasActivas.length ? `
+        <section class="bloque">
+            <div class="bloque-cabecera"><h2>Obras</h2></div>
+            <div class="chips-obras">
+                ${obrasActivas.map((o) => `<button class="chip" data-ir="obras" data-obra="${o.id}">${esc(o.nombre)}</button>`).join("")}
+                <button class="chip chip-linea" data-ir="obras">Todas</button>
+            </div>
+        </section>` : ""}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -419,6 +617,7 @@ $("#semana-hoy").addEventListener("click", () => { estado.lunes = lunesDe(new Da
 async function pintarAgenda() {
     const lunes = estado.lunes;
     const domingo = sumarDias(lunes, 6);
+    const hoy = hoyISO();
 
     $("#semana-titulo").textContent = lunes.getMonth() === domingo.getMonth()
         ? `${lunes.getDate()} al ${domingo.getDate()} de ${MESES[lunes.getMonth()]}`
@@ -429,13 +628,13 @@ async function pintarAgenda() {
     const [semana, pendientes] = await Promise.all([
         db.from("agenda").select("*")
             .gte("fecha", aISO(lunes)).lte("fecha", aISO(domingo))
-            // Las que tienen hora van primero y en orden; los trabajos sueltos
+            // Las que tienen hora van primero y en orden; las tareas sueltas
             // del día quedan al final, que es como se lee una jornada.
             .order("hora_inicio", { nullsFirst: false }),
         db.from("agenda").select("*")
             .eq("estado", "pendiente")
-            .or(`fecha.is.null,fecha.lt.${HOY}`)
-            .order("fecha", { nullsFirst: true }),
+            .or(`fecha.is.null,fecha.lt.${hoy}`)
+            .order("fecha", { nullsFirst: false }),
     ]);
 
     if (semana.error) return fallo(semana.error, "cargar la semana");
@@ -447,66 +646,38 @@ async function pintarAgenda() {
         const delDia = semana.data.filter((e) => e.fecha === iso);
 
         return `
-            <div class="dia ${i >= 5 ? "finde" : ""} ${iso === HOY ? "hoy" : ""} ${delDia.length === 0 ? "dia-vacio" : ""}">
+            <div class="dia ${i >= 5 ? "finde" : ""} ${iso === hoy ? "hoy" : ""} ${delDia.length === 0 ? "dia-vacio" : ""}">
                 <div class="dia-cabecera">
                     <span class="dia-nombre">${nombre.slice(0, 3)}</span>
                     <span class="dia-numero">${fecha.getDate()}</span>
+                    ${iso === hoy ? `<span class="dia-hoy">hoy</span>` : ""}
+                    <button class="dia-mas" data-nuevo-dia="${iso}" aria-label="Agregar en ${nombre} ${fecha.getDate()}">${ico("mas")}</button>
                 </div>
                 ${/* El arrow es necesario: map pasa el índice como segundo
-                      argumento, y pasárselo a chipEvento haría que del segundo
-                      evento en adelante se dibujaran como fichas de pendiente. */
-                  delDia.map((e) => chipEvento(e)).join("")}
-                <button class="dia-hueco" data-nuevo-dia="${iso}" aria-label="Agregar en ${nombre} ${fecha.getDate()}"></button>
+                      argumento, y la fila lo tomaría por sus opciones. */
+                  delDia.map((e) => filaAgenda(e)).join("")}
             </div>`;
     }).join("");
 
-    const panel = $("#pendientes");
-    panel.innerHTML = pendientes.data.length === 0
+    $("#pendientes").innerHTML = pendientes.data.length === 0
         ? `<p class="vacio">Nada pendiente.</p>`
-        : pendientes.data.map((e) => chipEvento(e, true)).join("");
-}
-
-function chipEvento(e, enPanel = false, mostrarObra = true) {
-    const atrasado = enPanel && e.estado === "pendiente" && e.fecha && e.fecha < HOY;
-    const hora = e.hora_inicio ? e.hora_inicio.slice(0, 5) : "";
-    let encabezado = hora;
-    if (enPanel) {
-        if (!e.fecha) {
-            encabezado = "Sin fecha";
-        } else if (atrasado) {
-            encabezado = `Venció el ${fechaCorta(e.fecha)}`;
-        } else {
-            encabezado = fechaCorta(e.fecha) + (hora ? ` · ${hora}` : "");
-        }
-    }
-
-    // Dos botones y no uno: el cuerpo abre la ficha y el tilde la da por
-    // hecha. Un <button> no puede contener otro, así que el contenedor es un
-    // div y el recuadro lo dibuja él.
-    return `
-        <div class="evento ${e.tipo} ${e.estado} ${atrasado ? "atrasado" : ""}">
-            <button class="evento-cuerpo" data-editar="agenda" data-id="${e.id}">
-                ${encabezado ? `<span class="evento-hora">${esc(encabezado)}</span>` : ""}
-                <span class="evento-titulo">${esc(e.titulo)}</span>
-                ${mostrarObra && e.obra_id ? `<span class="evento-obra">${esc(nombreObra(e.obra_id))}</span>` : ""}
-            </button>
-            ${e.estado !== "cancelado" ? `
-            <button class="evento-tilde" data-hecho="${e.id}" data-estado="${e.estado}"
-                    aria-label="${e.estado === "hecho" ? "Marcar como pendiente" : "Marcar como hecho"}"
-                    aria-pressed="${e.estado === "hecho"}">✓</button>` : ""}
-        </div>`;
+        : lista(pendientes.data.map((e) => filaAgenda(e, { conFecha: true })));
 }
 
 // ---------------------------------------------------------------------------
-// Pagos
+// Plata
 // ---------------------------------------------------------------------------
 
-$("#filtros-pagos").addEventListener("click", (ev) => {
+function fijarFiltroPlata(filtro) {
+    estado.filtroPlata = filtro;
+    $$("#filtros-plata .chip").forEach((c) => c.classList.toggle("chip-activo", c.dataset.filtro === filtro));
+}
+
+$("#filtros-plata").addEventListener("click", (ev) => {
     const chip = ev.target.closest(".chip");
     if (!chip) return;
-    estado.filtroPagos = chip.dataset.filtro;
-    $$("#filtros-pagos .chip").forEach((c) => c.classList.toggle("chip-activo", c === chip));
-    pintarPagos();
+    fijarFiltroPlata(chip.dataset.filtro);
+    pintarPlata();
 });
 
 function ordenarPagos(data) {
@@ -524,118 +695,43 @@ function ordenarPagos(data) {
         }
         return (b.fecha_pago || "") < (a.fecha_pago || "") ? -1 : 1;
     });
+    return data;
 }
 
-function fichaPagoHTML(p, mostrarObra = true) {
-    const vencido = p.estado === "pendiente" && p.vence && p.vence < HOY;
-    const etiqueta = p.estado === "pagado"
-        ? `<span class="etiqueta ok">${p.tipo === "cobro" ? "cobrado" : "pagado"}</span>`
-        : vencido
-            ? `<span class="etiqueta mal">vencido</span>`
-            : `<span class="etiqueta alerta">pendiente</span>`;
-
-    const cuando = p.estado === "pagado"
-        ? (p.fecha_pago ? "El " + fechaCorta(p.fecha_pago) : "Sin fecha de pago")
-        : (p.vence ? "Vence el " + fechaCorta(p.vence) : "Sin vencimiento");
-
-    const detalle = [
-        mostrarObra ? nombreObra(p.obra_id) : "",
-        cuando,
-        p.metodo,
-    ].filter(Boolean).join(" · ");
-
-    return `
-        <div class="ficha">
-            <div class="ficha-cuerpo">
-                <div class="ficha-titulo">${esc(p.concepto)}</div>
-                <div class="ficha-sub">${esc(detalle)}</div>
-            </div>
-            <span class="etiqueta neutro">${p.tipo === "cobro" ? "a cobrar" : "a pagar"}</span>
-            ${etiqueta}
-            <span class="ficha-monto">${plata(p.monto, p.moneda)}</span>
-            <div class="ficha-acciones">
-                ${p.estado === "pendiente"
-                    ? `<button class="btn btn-fantasma" data-marcar-pagado="${p.id}">Marcar pagado</button>`
-                    : ""}
-                <button class="btn btn-fantasma" data-editar="pago" data-id="${p.id}">Editar</button>
-            </div>
-        </div>`;
+function htmlTotalesPlata(pagos) {
+    const r = resumenPlata(pagos);
+    return (
+        tarjetaTotal("Te deben", sumar(r.cobrar)) +
+        tarjetaTotal("Vencido", sumar(r.cobrarVencido), { clase: "rojo" }) +
+        tarjetaTotal("Cobraste este mes", sumar(r.cobradoMes), { clase: "verde" }) +
+        tarjetaTotal("Tenés que pagar", sumar(r.pagar))
+    );
 }
 
-async function pintarPagos() {
-    const { data, error } = await db.from("pagos").select("*")
-        .order("creado", { ascending: false });
-
-    if (error) return fallo(error, "cargar los pagos");
+async function pintarPlata() {
+    const { data, error } = await db.from("pagos").select("*").order("creado", { ascending: false });
+    if (error) return fallo(error, "cargar la plata");
 
     ordenarPagos(data);
-    $("#totales-pagos").innerHTML = htmlTotalesPagos(data);
+    $("#totales-plata").innerHTML = htmlTotalesPlata(data);
 
+    const hoy = hoyISO();
     const visibles = data.filter((p) => {
-        switch (estado.filtroPagos) {
+        switch (estado.filtroPlata) {
             case "pendiente": return p.estado === "pendiente";
             case "pagado": return p.estado === "pagado";
-            case "vencido": return p.estado === "pendiente" && p.vence && p.vence < HOY;
+            case "vencido": return p.estado === "pendiente" && p.vence && p.vence < hoy;
             default: return true;
         }
     });
 
-    const cont = $("#lista-pagos");
-    if (visibles.length === 0) {
-        cont.innerHTML = `<p class="vacio">No hay pagos en este filtro.</p>`;
-        return;
-    }
-
-    cont.innerHTML = visibles.map((p) => fichaPagoHTML(p, true)).join("");
-}
-
-function htmlTotalesPagos(pagos) {
-    // Los totales se acumulan por moneda. Sumar pesos con dólares daría un
-    // número que no significa nada, así que cada tarjeta muestra una línea
-    // por moneda y sólo si tiene algo.
-    const vacio = () => ({ ARS: 0, USD: 0 });
-    const t = { cobrar: vacio(), vencido: vacio(), cobrado: vacio(), pagar: vacio() };
-    const mesActual = HOY.slice(0, 7);
-
-    for (const p of pagos) {
-        const m = p.moneda === "USD" ? "USD" : "ARS";
-        const monto = Number(p.monto) || 0;
-
-        if (p.estado === "pendiente") {
-            if (p.tipo === "cobro") {
-                t.cobrar[m] += monto;
-                if (p.vence && p.vence < HOY) t.vencido[m] += monto;
-            } else {
-                t.pagar[m] += monto;
-            }
-        } else if (p.tipo === "cobro" && p.fecha_pago && p.fecha_pago.startsWith(mesActual)) {
-            t.cobrado[m] += monto;
-        }
-    }
-
-    const tarjeta = (etiqueta, valores, clase = "") => {
-        const lineas = ["ARS", "USD"]
-            .filter((m) => valores[m] > 0)
-            .map((m) => plata(valores[m], m));
-        if (lineas.length === 0) lineas.push(plata(0, "ARS"));
-
-        return `
-            <div class="total ${clase}">
-                <div class="total-etiqueta">${etiqueta}</div>
-                ${lineas.map((l) => `<div class="total-valor">${l}</div>`).join("")}
-            </div>`;
-    };
-
-    return (
-        tarjeta("Por cobrar", t.cobrar) +
-        tarjeta("Vencido", t.vencido, "rojo") +
-        tarjeta("Cobrado este mes", t.cobrado, "verde") +
-        tarjeta("Gastos pendientes", t.pagar)
-    );
+    $("#lista-plata").innerHTML = visibles.length === 0
+        ? `<p class="vacio">${data.length === 0 ? `Todavía no hay cobros ni gastos. Cargá el primero con "+ Nuevo".` : "No hay nada en este filtro."}</p>`
+        : lista(visibles.map((p) => filaPago(p)));
 }
 
 // ---------------------------------------------------------------------------
-// Pedidos de materiales
+// Pedidos
 // ---------------------------------------------------------------------------
 
 $("#buscar-pedidos").addEventListener("input", (ev) => {
@@ -643,72 +739,71 @@ $("#buscar-pedidos").addEventListener("input", (ev) => {
     pintarPedidos();
 });
 
-function fichaPedidoHTML(p, mostrarObra = true) {
-    const etiquetas = { borrador: "neutro", pedido: "alerta", recibido: "ok", cancelado: "neutro" };
-    const items = (p.pedido_items || []).sort((a, b) => a.orden - b.orden);
+const ESTADOS_PEDIDO = { borrador: "Borrador", pedido: "En camino", recibido: "Recibido", cancelado: "Cancelado" };
+
+function fichaPedido(p, conObra = true) {
+    const g = progresoPedido(p);
+    const items = g.items.slice().sort((a, b) => a.orden - b.orden);
     const abierto = estado.pedidosAbiertos.has(p.id);
-    const recibidos = items.filter((i) => i.recibido).length;
 
     const totales = { ARS: 0, USD: 0 };
     for (const i of items) {
-        const m = i.moneda === "USD" ? "USD" : "ARS";
-        totales[m] += (Number(i.precio_unitario) || 0) * Number(i.cantidad);
+        totales[i.moneda === "USD" ? "USD" : "ARS"] += (Number(i.precio_unitario) || 0) * Number(i.cantidad);
     }
-    const montosHTML = ["ARS", "USD"]
-        .filter((m) => totales[m] > 0)
-        .map((m) => `<span class="ficha-monto">${plata(totales[m], m)}</span>`)
-        .join("");
+    const montos = ["ARS", "USD"].filter((m) => totales[m] > 0).map((m) => plata(totales[m], m)).join(" + ");
 
     const detalle = [
-        mostrarObra ? nombreObra(p.obra_id) : "",
-        p.fecha_pedido ? "Pedido el " + fechaCorta(p.fecha_pedido) : "",
-        p.entrega_estimada ? "Entrega " + fechaCorta(p.entrega_estimada) : "",
-        items.length ? `${recibidos}/${items.length} recibidos` : "sin materiales",
+        conObra ? nombreObra(p.obra_id) : "",
+        p.fecha_pedido ? "pedido " + conArticulo(diaCercano(p.fecha_pedido)) : "",
+        p.entrega_estimada ? "entrega " + conArticulo(diaCercano(p.entrega_estimada)) : "",
     ].filter(Boolean).join(" · ");
 
     return `
-        <div class="ficha pedido">
-            <div class="pedido-cabecera">
-                <div class="ficha-cuerpo">
-                    <div class="ficha-titulo">${esc(p.proveedor || "Sin proveedor")}</div>
-                    <div class="ficha-sub">${esc(detalle)}</div>
-                </div>
-                <span class="etiqueta ${etiquetas[p.estado]}">${esc(p.estado)}</span>
-                ${montosHTML}
-                <div class="ficha-acciones">
-                    <button class="btn btn-fantasma" data-desplegar="${p.id}">${abierto ? "Ocultar" : "Materiales"}</button>
-                    <button class="btn btn-fantasma" data-editar="pedido" data-id="${p.id}">Editar</button>
-                </div>
-            </div>
+        <div class="pedido ${p.estado} ${abierto ? "abierto" : ""}">
+            <button class="pedido-cabecera" data-desplegar="${p.id}" aria-expanded="${abierto}">
+                <span class="pedido-datos">
+                    <span class="fila-titulo">${esc(p.proveedor || "Sin proveedor")}</span>
+                    ${detalle ? `<span class="fila-sub">${esc(mayuscula(detalle))}</span>` : ""}
+                </span>
+                ${montos ? `<span class="monto">${montos}</span>` : ""}
+                <span class="pedido-avance">
+                    <span class="etiqueta ${p.estado}">${ESTADOS_PEDIDO[p.estado] || esc(p.estado)}</span>
+                    <span class="progreso" aria-hidden="true"><span style="width:${g.pct}%"></span></span>
+                    <span class="pedido-cuenta">${g.total ? `${g.llegaron} de ${g.total}` : "Sin materiales"}</span>
+                    <span class="pedido-flecha">${ico("abajo")}</span>
+                </span>
+            </button>
 
             ${abierto ? `
             <div class="pedido-items">
                 ${items.map((i) => {
-                    const monedaItem = i.moneda === "USD" ? "USD" : "ARS";
+                    const moneda = i.moneda === "USD" ? "USD" : "ARS";
                     return `
                     <label class="item ${i.recibido ? "listo" : ""}">
                         <input type="checkbox" data-item="${i.id}" ${i.recibido ? "checked" : ""}>
+                        <span class="item-caja">${ico("tilde")}</span>
                         <span class="item-nombre">${esc(i.material)}</span>
                         <span class="item-detalle">${Number(i.cantidad)} ${esc(i.unidad)}${
-                            i.precio_unitario ? " · " + plata(i.precio_unitario * i.cantidad, monedaItem) : ""
+                            i.precio_unitario ? " · " + plata(i.precio_unitario * i.cantidad, moneda) : ""
                         }</span>
-                        <button class="btn btn-icono" data-borrar-item="${i.id}"
-                                data-material="${esc(i.material)}"
-                                aria-label="Quitar ${esc(i.material)}">&times;</button>
+                        <button class="item-quitar" data-borrar-item="${i.id}" data-material="${esc(i.material)}"
+                                aria-label="Quitar ${esc(i.material)}">${ico("cerrar")}</button>
                     </label>`;
                 }).join("")}
 
                 <form class="item-alta" data-alta-item="${p.id}">
-                    <input name="material" placeholder="Material" required aria-label="Material">
+                    <input name="material" placeholder="Agregar material" required aria-label="Material">
                     <input name="cantidad" class="chico" type="number" step="0.01" min="0.01" value="1" aria-label="Cantidad">
                     <input name="unidad" class="chico" placeholder="u" value="u" aria-label="Unidad">
                     <input name="precio" class="chico" type="number" step="0.01" min="0" placeholder="Precio c/u" aria-label="Precio unitario">
                     <select name="moneda" class="chico" aria-label="Moneda">
-                        <option value="ARS">ARS ($)</option>
-                        <option value="USD">USD (US$)</option>
+                        <option value="ARS">$</option>
+                        <option value="USD">US$</option>
                     </select>
                     <button class="btn btn-fantasma" type="submit">Agregar</button>
                 </form>
+
+                <button class="btn btn-suave" data-editar="pedido" data-id="${p.id}">Editar pedido</button>
             </div>` : ""}
         </div>`;
 }
@@ -724,30 +819,117 @@ async function pintarPedidos() {
 
     const cont = $("#lista-pedidos");
     if (data.length === 0) {
-        cont.innerHTML = `<p class="vacio">No hay pedidos todavía.</p>`;
+        cont.innerHTML = `<p class="vacio">Todavía no hay pedidos. Cargá uno con "+ Nuevo" o mandale al asistente la foto de un remito.</p>`;
         return;
     }
 
     const q = estado.busquedaPedidos.trim().toLowerCase();
     const filtrados = !q ? data : data.filter((p) => {
-        const textoPedido = [
+        const texto = [
             p.proveedor,
             nombreObra(p.obra_id),
             p.notas,
             ...(p.pedido_items || []).map((i) => i.material),
         ].filter(Boolean).join(" ").toLowerCase();
-        return textoPedido.includes(q);
+        return texto.includes(q);
     });
 
-    if (filtrados.length === 0) {
-        cont.innerHTML = `<p class="vacio">No hay pedidos que coincidan con "${esc(estado.busquedaPedidos.trim())}".</p>`;
+    cont.innerHTML = filtrados.length === 0
+        ? `<p class="vacio">No hay pedidos que coincidan con "${esc(estado.busquedaPedidos.trim())}".</p>`
+        : filtrados.map((p) => fichaPedido(p)).join("");
+}
+
+// ---------------------------------------------------------------------------
+// Obras
+// ---------------------------------------------------------------------------
+
+const ESTADOS_OBRA = { activa: "Activa", pausada: "Pausada", terminada: "Terminada" };
+
+async function pintarObras() {
+    await cargarObras();
+    if (estado.obraActiva) {
+        if (estado.obras.some((o) => o.id === estado.obraActiva)) return pintarDetalleObra(estado.obraActiva);
+        estado.obraActiva = null;
+    }
+
+    $("#obra-volver").hidden = true;
+    $("#obras-titulo").textContent = "Obras";
+    $("#obra-acciones").innerHTML = `<button class="btn btn-primario" data-nuevo="obra">+ Nueva</button>`;
+    $("#detalle-obra").hidden = true;
+
+    const cont = $("#lista-obras");
+    cont.hidden = false;
+
+    if (estado.obras.length === 0) {
+        cont.innerHTML = `<p class="vacio">No hay obras cargadas. Son opcionales: sirven para ver junto todo lo de un mismo proyecto.</p>`;
         return;
     }
 
-    cont.innerHTML = filtrados.map((p) => fichaPedidoHTML(p, true)).join("");
+    cont.innerHTML = `<div class="lista">${estado.obras.map((o) => `
+        <button class="fila fila-entera" data-ir="obras" data-obra="${o.id}">
+            <span class="fila-icono">${ico("obra")}</span>
+            <span class="fila-cuerpo">
+                <span class="fila-titulo">${esc(o.nombre)}</span>
+                <span class="fila-sub">${esc(o.cliente || "Sin cliente")}</span>
+            </span>
+            <span class="etiqueta ${o.estado}">${ESTADOS_OBRA[o.estado] || esc(o.estado)}</span>
+            <span class="fila-flecha">${ico("derecha")}</span>
+        </button>`).join("")}</div>`;
 }
 
-function refrescarVistaActual() {
+async function pintarDetalleObra(obraId) {
+    const obra = estado.obras.find((o) => o.id === obraId);
+    if (!obra) return;
+
+    $("#obra-volver").hidden = false;
+    $("#obras-titulo").textContent = obra.nombre;
+    $("#obra-acciones").innerHTML = `
+        <span class="etiqueta ${obra.estado}">${ESTADOS_OBRA[obra.estado] || esc(obra.estado)}</span>
+        <button class="btn btn-fantasma" data-editar="obra" data-id="${obra.id}">Editar</button>`;
+    $("#lista-obras").hidden = true;
+
+    const [agendaRes, pagosRes, pedidosRes] = await Promise.all([
+        db.from("agenda").select("*").eq("obra_id", obraId).order("fecha", { nullsFirst: true }).order("hora_inicio", { nullsFirst: false }),
+        db.from("pagos").select("*").eq("obra_id", obraId).order("creado", { ascending: false }),
+        db.from("pedidos").select("*, pedido_items(*)").eq("obra_id", obraId).order("creado", { ascending: false }),
+    ]);
+
+    if (agendaRes.error) return fallo(agendaRes.error, "cargar la agenda de la obra");
+    if (pagosRes.error) return fallo(pagosRes.error, "cargar la plata de la obra");
+    if (pedidosRes.error) return fallo(pedidosRes.error, "cargar los pedidos de la obra");
+
+    const pagos = ordenarPagos(pagosRes.data);
+    const agenda = agendaRes.data;
+    const pedidos = pedidosRes.data;
+    const sub = [obra.cliente, obra.notas].filter(Boolean).join(" · ");
+
+    const bloque = (titulo, clave, etiqueta, contenido, vacio) => `
+        <section class="bloque">
+            <div class="bloque-cabecera">
+                <h2>${titulo}</h2>
+                <button class="btn btn-suave" data-nuevo="${clave}" data-obra="${obra.id}">+ ${etiqueta}</button>
+            </div>
+            ${contenido || `<p class="vacio">${vacio}</p>`}
+        </section>`;
+
+    const cont = $("#detalle-obra");
+    cont.hidden = false;
+    cont.innerHTML = `
+        ${sub ? `<p class="obra-sub">${esc(sub)}</p>` : ""}
+        <div class="totales">${htmlTotalesPlata(pagos)}</div>
+        ${bloque("Agenda", "agenda", "Agregar",
+            agenda.length ? lista(agenda.map((e) => filaAgenda(e, { conFecha: true, conObra: false }))) : "",
+            "No hay nada agendado en esta obra.")}
+        ${bloque("Plata", "pago", "Agregar",
+            pagos.length ? lista(pagos.map((p) => filaPago(p, false))) : "",
+            "No hay cobros ni gastos en esta obra.")}
+        ${bloque("Pedidos", "pedido", "Agregar",
+            pedidos.map((p) => fichaPedido(p, false)).join(""),
+            "No hay pedidos en esta obra.")}`;
+}
+
+function refrescar() {
+    ultimoPintado = Date.now();
     VISTAS[estado.vista]();
 }
 
@@ -758,11 +940,13 @@ function refrescarVistaActual() {
 // Un solo listener en el contenido en vez de uno por fila: las listas se
 // redibujan enteras a cada rato y así no hay que volver a enganchar nada.
 $(".contenido").addEventListener("click", async (ev) => {
-    const verObra = ev.target.closest("[data-ver-obra]");
-    if (verObra) return abrirObra(verObra.dataset.verObra);
-
     const editar = ev.target.closest("[data-editar]");
     if (editar) return abrirModal(editar.dataset.editar, editar.dataset.id);
+
+    // Es un botón y no un enlace con #ancla: el hash de la dirección lo usa
+    // la navegación entre pantallas.
+    const bajar = ev.target.closest("[data-bajar]");
+    if (bajar) return document.getElementById(bajar.dataset.bajar)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
     const nuevo = ev.target.closest("[data-nuevo]");
     if (nuevo) {
@@ -779,17 +963,20 @@ $(".contenido").addEventListener("click", async (ev) => {
         estado.pedidosAbiertos.has(id)
             ? estado.pedidosAbiertos.delete(id)
             : estado.pedidosAbiertos.add(id);
-        return refrescarVistaActual();
+        return refrescar();
     }
 
-    const pagar = ev.target.closest("[data-marcar-pagado]");
+    const pagar = ev.target.closest("[data-pagar]");
     if (pagar) {
+        // Un toque registra el cobro o el pago con la fecha de hoy; otro
+        // toque lo deshace, por si se marcó el renglón equivocado.
+        const yaEstaba = pagar.dataset.estado === "pagado";
         const { error } = await db.from("pagos")
-            .update({ estado: "pagado", fecha_pago: HOY })
-            .eq("id", pagar.dataset.marcarPagado);
+            .update(yaEstaba ? { estado: "pendiente", fecha_pago: null } : { estado: "pagado", fecha_pago: hoyISO() })
+            .eq("id", pagar.dataset.pagar);
         if (error) return fallo(error, "marcar el pago");
-        aviso("Pago registrado.");
-        return refrescarVistaActual();
+        aviso(yaEstaba ? "Volvió a pendiente." : "Registrado con fecha de hoy.");
+        return refrescar();
     }
 
     const borrarItem = ev.target.closest("[data-borrar-item]");
@@ -804,19 +991,19 @@ $(".contenido").addEventListener("click", async (ev) => {
         if (!confirm(`¿Quitar "${borrarItem.dataset.material}" del pedido?`)) return;
         const { error } = await db.from("pedido_items").delete().eq("id", borrarItem.dataset.borrarItem);
         if (error) return fallo(error, "quitar el material");
-        return refrescarVistaActual();
+        return refrescar();
     }
 
-    const marcarHecho = ev.target.closest("[data-hecho]");
-    if (marcarHecho) {
-        // Dar por terminado un trabajo es lo que más se hace en el día. Que
+    const hecho = ev.target.closest("[data-hecho]");
+    if (hecho) {
+        // Dar por terminada una tarea es lo que más se hace en el día. Que
         // exija abrir el formulario, cambiar un desplegable y guardar es mucho
-        // trámite, sobre todo en la obra y con una mano sola.
+        // trámite, sobre todo con una mano sola.
         const { error } = await db.from("agenda")
-            .update({ estado: marcarHecho.dataset.estado === "hecho" ? "pendiente" : "hecho" })
-            .eq("id", marcarHecho.dataset.hecho);
+            .update({ estado: hecho.dataset.estado === "hecho" ? "pendiente" : "hecho" })
+            .eq("id", hecho.dataset.hecho);
         if (error) return fallo(error, "cambiar el estado");
-        return refrescarVistaActual();
+        return refrescar();
     }
 });
 
@@ -827,7 +1014,7 @@ $(".contenido").addEventListener("change", async (ev) => {
         .update({ recibido: check.checked })
         .eq("id", check.dataset.item);
     if (error) return fallo(error, "actualizar el material");
-    refrescarVistaActual();
+    refrescar();
 });
 
 $(".contenido").addEventListener("submit", async (ev) => {
@@ -837,30 +1024,19 @@ $(".contenido").addEventListener("submit", async (ev) => {
 
     const datos = new FormData(form);
     const precio = datos.get("precio");
-    const moneda = datos.get("moneda") || "ARS";
 
-    const fila = {
+    const { error } = await db.from("pedido_items").insert({
         pedido_id: form.dataset.altaItem,
         material: datos.get("material").trim(),
         cantidad: Number(datos.get("cantidad")) || 1,
         unidad: (datos.get("unidad") || "u").trim() || "u",
         precio_unitario: precio === "" ? null : Number(precio),
-        moneda,
+        moneda: datos.get("moneda") || "ARS",
         orden: Date.now() % 100000,
-    };
-
-    let { error } = await db.from("pedido_items").insert(fila);
-    if (error && /moneda/i.test(error.message || "")) {
-        if (moneda === "USD") {
-            aviso("Para guardar materiales en dólares hay que correr la migración de moneda en Supabase.", true);
-            return;
-        }
-        delete fila.moneda;
-        ({ error } = await db.from("pedido_items").insert(fila));
-    }
+    });
 
     if (error) return fallo(error, "agregar el material");
-    refrescarVistaActual();
+    refrescar();
 });
 
 // ---------------------------------------------------------------------------
@@ -869,37 +1045,38 @@ $(".contenido").addEventListener("submit", async (ev) => {
 
 // Un formulario declarado como datos en vez de cuatro bloques de HTML casi
 // iguales. `par: true` significa que ese campo comparte renglón con el
-// siguiente.
+// siguiente. `extra: true` lo manda adentro de "Más detalles": al cargar algo
+// nuevo se ven tres o cuatro campos, no diez.
 const FORMULARIOS = {
     agenda: {
         tabla: "agenda",
-        titulo: { nuevo: "Nueva entrada", editar: "Editar entrada" },
+        titulo: { nuevo: "Nueva tarea o reunión", editar: "Editar" },
         campos: [
-            { n: "tipo", e: "Tipo", t: "select", ops: [["trabajo", "Trabajo"], ["reunion", "Reunión"]] },
-            { n: "titulo", e: "Título", t: "text", req: true },
-            { n: "obra_id", e: "Obra", t: "obra" },
-            { n: "fecha", e: "Fecha (vacía = pendiente)", t: "date", par: true },
-            { n: "estado", e: "Estado", t: "select", ops: [["pendiente", "Pendiente"], ["hecho", "Hecho"], ["cancelado", "Cancelado"]] },
-            { n: "hora_inicio", e: "Desde", t: "time", par: true },
-            { n: "hora_fin", e: "Hasta", t: "time" },
-            { n: "lugar", e: "Lugar", t: "text" },
-            { n: "notas", e: "Notas", t: "textarea" },
+            { n: "titulo", e: "Qué", t: "text", req: true },
+            { n: "fecha", e: "Día (vacío = pendiente)", t: "date", par: true },
+            { n: "hora_inicio", e: "Hora", t: "time" },
+            { n: "tipo", e: "Tipo", t: "select", ops: [["trabajo", "Tarea"], ["reunion", "Reunión"]] },
+            { n: "hora_fin", e: "Hasta", t: "time", par: true, extra: true },
+            { n: "estado", e: "Estado", t: "select", extra: true, ops: [["pendiente", "Pendiente"], ["hecho", "Hecho"], ["cancelado", "Cancelado"]] },
+            { n: "lugar", e: "Lugar", t: "text", extra: true },
+            { n: "obra_id", e: "Obra", t: "obra", extra: true },
+            { n: "notas", e: "Notas", t: "textarea", extra: true },
         ],
     },
     pago: {
         tabla: "pagos",
-        titulo: { nuevo: "Nuevo pago", editar: "Editar pago" },
+        titulo: { nuevo: "Nuevo cobro o gasto", editar: "Editar" },
         campos: [
-            { n: "tipo", e: "Tipo", t: "select", ops: [["cobro", "A cobrar"], ["gasto", "A pagar"]], par: true },
-            { n: "estado", e: "Estado", t: "select", ops: [["pendiente", "Pendiente"], ["pagado", "Pagado"]] },
+            { n: "tipo", e: "Tipo", t: "select", ops: [["cobro", "Me deben"], ["gasto", "Tengo que pagar"]] },
             { n: "concepto", e: "Concepto", t: "text", req: true },
-            { n: "obra_id", e: "Obra", t: "obra" },
             { n: "monto", e: "Monto", t: "number", req: true, par: true },
             { n: "moneda", e: "Moneda", t: "select", ops: [["ARS", "Pesos"], ["USD", "Dólares"]] },
-            { n: "vence", e: "Vence", t: "date", par: true },
-            { n: "fecha_pago", e: "Fecha de pago", t: "date" },
-            { n: "metodo", e: "Medio", t: "text" },
-            { n: "notas", e: "Notas", t: "textarea" },
+            { n: "vence", e: "Vence", t: "date" },
+            { n: "estado", e: "Estado", t: "select", par: true, extra: true, ops: [["pendiente", "Pendiente"], ["pagado", "Pagado o cobrado"]] },
+            { n: "fecha_pago", e: "Fecha de pago", t: "date", extra: true },
+            { n: "obra_id", e: "Obra", t: "obra", extra: true },
+            { n: "metodo", e: "Medio", t: "text", extra: true },
+            { n: "notas", e: "Notas", t: "textarea", extra: true },
         ],
     },
     pedido: {
@@ -907,11 +1084,11 @@ const FORMULARIOS = {
         titulo: { nuevo: "Nuevo pedido", editar: "Editar pedido" },
         campos: [
             { n: "proveedor", e: "Proveedor", t: "text", req: true },
-            { n: "obra_id", e: "Obra", t: "obra" },
-            { n: "estado", e: "Estado", t: "select", ops: [["borrador", "Borrador"], ["pedido", "Pedido"], ["recibido", "Recibido"], ["cancelado", "Cancelado"]] },
-            { n: "fecha_pedido", e: "Fecha del pedido", t: "date", par: true },
-            { n: "entrega_estimada", e: "Entrega estimada", t: "date" },
-            { n: "notas", e: "Notas", t: "textarea" },
+            { n: "estado", e: "Estado", t: "select", ops: [["borrador", "Borrador"], ["pedido", "En camino"], ["recibido", "Recibido"], ["cancelado", "Cancelado"]] },
+            { n: "obra_id", e: "Obra", t: "obra", extra: true },
+            { n: "fecha_pedido", e: "Fecha del pedido", t: "date", par: true, extra: true },
+            { n: "entrega_estimada", e: "Entrega estimada", t: "date", extra: true },
+            { n: "notas", e: "Notas", t: "textarea", extra: true },
         ],
     },
     obra: {
@@ -928,7 +1105,12 @@ const FORMULARIOS = {
 
 let modalActual = null;
 
-async function abrirModal(clave, id = null, valoresIniciales = {}) {
+// `opciones` existe para el asistente: cuando la persona toca "Corregir" en
+// una propuesta, el formulario se abre con lo que leyó la IA.
+//   - guardar(datos): reemplaza el insert de siempre (el pedido leído de un
+//     remito se guarda junto con sus materiales).
+//   - alGuardar(): avisa que quedó guardado.
+async function abrirModal(clave, id = null, valoresIniciales = {}, opciones = {}) {
     const def = FORMULARIOS[clave];
     if (!def) return;
 
@@ -940,32 +1122,50 @@ async function abrirModal(clave, id = null, valoresIniciales = {}) {
         fila = data;
     }
 
-    modalActual = { clave, def, id };
+    modalActual = { clave, def, id, opciones };
 
     $("#modal-titulo").textContent = def.titulo[id ? "editar" : "nuevo"];
-    $("#modal-form").innerHTML = armarCampos(def.campos, fila);
+    $("#modal-form").innerHTML = armarCampos(def.campos, fila, Boolean(id));
     $("#modal-borrar").hidden = !id;
     $("#modal-error").hidden = true;
     $("#modal-fondo").hidden = false;
 
-    // El foco va al primer campo para poder escribir sin tocar el mouse.
-    const primero = $("#modal-form input, #modal-form select, #modal-form textarea");
-    if (primero) primero.focus();
+    // El foco va al primer campo para poder escribir sin tocar el mouse. Al
+    // editar no: en el teléfono abriría el teclado encima de lo que se quiere
+    // mirar.
+    if (!id) $("#modal-form input, #modal-form select, #modal-form textarea")?.focus();
 }
 
-function armarCampos(campos, fila) {
-    let html = "";
-
-    for (let i = 0; i < campos.length; i++) {
-        const c = campos[i];
-        if (c.par && campos[i + 1]) {
-            html += `<div class="fila">${campoHTML(c, fila)}${campoHTML(campos[i + 1], fila)}</div>`;
-            i++;
-        } else {
-            html += campoHTML(c, fila);
+function armarCampos(campos, fila, editando) {
+    const armar = (grupo) => {
+        let html = "";
+        for (let i = 0; i < grupo.length; i++) {
+            const c = grupo[i];
+            if (c.par && grupo[i + 1]) {
+                html += `<div class="fila-campos">${campoHTML(c, fila)}${campoHTML(grupo[i + 1], fila)}</div>`;
+                i++;
+            } else {
+                html += campoHTML(c, fila);
+            }
         }
-    }
-    return html;
+        return html;
+    };
+
+    const extras = campos.filter((c) => c.extra);
+    if (extras.length === 0) return armar(campos);
+
+    // "Más detalles" arranca abierto si ya hay algo cargado ahí adentro: no
+    // tiene que esconder un dato que existe.
+    const conDatos = extras.some((c) => {
+        const v = fila[c.n];
+        return v !== null && v !== undefined && v !== "" && !(c.n === "estado" && (v === "pendiente" || v === "borrador"));
+    });
+
+    return armar(campos.filter((c) => !c.extra)) + `
+        <details class="mas-detalles" ${editando || conDatos ? "open" : ""}>
+            <summary>Más detalles</summary>
+            ${armar(extras)}
+        </details>`;
 }
 
 function campoHTML(c, fila) {
@@ -985,7 +1185,7 @@ function campoHTML(c, fila) {
     } else if (c.t === "textarea") {
         control = `<textarea id="${id}" name="${c.n}">${esc(valor)}</textarea>`;
     } else if (c.t === "number") {
-        control = `<input id="${id}" name="${c.n}" type="number" step="0.01" min="0" value="${esc(valor)}" ${req}>`;
+        control = `<input id="${id}" name="${c.n}" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(valor)}" ${req}>`;
     } else {
         // Las horas vienen de Postgres como "14:30:00" y el input type=time
         // no acepta los segundos: los recorta.
@@ -993,7 +1193,7 @@ function campoHTML(c, fila) {
         control = `<input id="${id}" name="${c.n}" type="${c.t}" value="${esc(v)}" ${req}>`;
     }
 
-    return `<div><label for="${id}">${c.e}</label>${control}</div>`;
+    return `<div class="campo"><label for="${id}">${c.e}</label>${control}</div>`;
 }
 
 function cerrarModal() {
@@ -1009,7 +1209,9 @@ $("#modal-fondo").addEventListener("click", (ev) => {
 });
 
 document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && modalActual) cerrarModal();
+    if (ev.key !== "Escape") return;
+    if (modalActual) cerrarModal();
+    else cerrarAsistente();
 });
 
 // Enter dentro de un campo dispara el submit del formulario, y sin esto el
@@ -1026,11 +1228,16 @@ async function guardarModal() {
     if (!modalActual) return;
 
     const form = $("#modal-form");
+    const err = $("#modal-error");
+    const { def, id, clave, opciones } = modalActual;
+
+    // Un campo obligatorio escondido dentro de "Más detalles" cerrado no
+    // puede mostrar su aviso de validación; se abre antes de validar.
+    const detalles = form.querySelector(".mas-detalles");
+    if (!form.checkValidity() && detalles) detalles.open = true;
     if (!form.reportValidity()) return;
 
-    const { def, id, clave } = modalActual;
     const datos = {};
-    const err = $("#modal-error");
 
     for (const c of def.campos) {
         const el = form.elements[c.n];
@@ -1056,6 +1263,7 @@ async function guardarModal() {
     }
 
     if (clave === "agenda" && datos.hora_inicio && datos.hora_fin && datos.hora_fin <= datos.hora_inicio) {
+        if (detalles) detalles.open = true;
         err.textContent = "La hora de fin tiene que ser posterior a la de inicio.";
         err.hidden = false;
         form.elements.hora_fin.focus();
@@ -1063,15 +1271,16 @@ async function guardarModal() {
     }
 
     if (clave === "pago" && datos.estado === "pagado" && !datos.fecha_pago) {
-        datos.fecha_pago = HOY;
+        datos.fecha_pago = hoyISO();
     }
 
     const boton = $("#modal-guardar");
     boton.disabled = true;
 
-    const { error } = id
-        ? await db.from(def.tabla).update(datos).eq("id", id)
-        : await db.from(def.tabla).insert(datos);
+    let error;
+    if (opciones.guardar) ({ error } = await opciones.guardar(datos));
+    else if (id) ({ error } = await db.from(def.tabla).update(datos).eq("id", id));
+    else ({ error } = await db.from(def.tabla).insert(datos));
 
     boton.disabled = false;
 
@@ -1084,8 +1293,9 @@ async function guardarModal() {
 
     cerrarModal();
     aviso("Guardado.");
+    if (opciones.alGuardar) opciones.alGuardar();
     if (clave === "obra") await cargarObras();
-    VISTAS[estado.vista]();
+    refrescar();
 }
 
 $("#modal-borrar").addEventListener("click", async () => {
@@ -1098,6 +1308,9 @@ $("#modal-borrar").addEventListener("click", async () => {
 
     cerrarModal();
     aviso("Borrado.");
-    if (clave === "obra") await cargarObras();
-    VISTAS[estado.vista]();
+    if (clave === "obra") {
+        estado.obraActiva = null;
+        await cargarObras();
+    }
+    refrescar();
 });
